@@ -18,7 +18,7 @@ This project provides a UDF-like architecture implemented in Swift, designed to 
 
 ## Introduction
 
-This project is inspired by the Redux architecture pattern and implemented in Swift. It is designed to help developers manage state in a centralized and predictable way, improving scalability and simplifying debugging. The core of the system revolves around a central `Store` that holds the app's state, and `Reducers` that specify how state should change in response to actions. Additionally, `Effects` handle asynchronous operations and other side effects.
+This project is inspired by the UDF architecture pattern and implemented in Swift. It is designed to help developers manage state in a centralized and predictable way, improving scalability and simplifying debugging. The core of the system revolves around a central `Store` that holds the app's state, and `Reducers` that specify how state should change in response to actions. Additionally, `Effects` handle asynchronous operations and other side effects.
 
 ## Installation
 
