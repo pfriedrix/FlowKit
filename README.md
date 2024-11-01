@@ -1,8 +1,8 @@
 ---
 
-# Redux
+# FlowKit
 
-This project provides a Redux-like architecture implemented in Swift, designed to manage state in applications effectively. It centralizes the application's state and logic, making the app's behavior predictable and easy to maintain.
+This project provides a UDF-like architecture implemented in Swift, designed to manage state in applications effectively. It centralizes the application's state and logic, making the app's behavior predictable and easy to maintain.
 
 ## Table of Contents
 
@@ -18,7 +18,7 @@ This project provides a Redux-like architecture implemented in Swift, designed t
 
 ## Introduction
 
-This project is inspired by the Redux architecture pattern and implemented in Swift. It is designed to help developers manage state in a centralized and predictable way, improving scalability and simplifying debugging. The core of the system revolves around a central `Store` that holds the app's state, and `Reducers` that specify how state should change in response to actions. Additionally, `Effects` handle asynchronous operations and other side effects.
+This project is inspired by the UDF architecture pattern and implemented in Swift. It is designed to help developers manage state in a centralized and predictable way, improving scalability and simplifying debugging. The core of the system revolves around a central `Store` that holds the app's state, and `Reducers` that specify how state should change in response to actions. Additionally, `Effects` handle asynchronous operations and other side effects.
 
 ## Installation
 
@@ -28,12 +28,12 @@ To install this package using Swift Package Manager (SPM):
 2. Navigate to `File` > `Add Packages...`.
 3. Enter the following URL in the search bar:
    ```
-   https://github.com/pfriedrix/Redux
+   https://github.com/pfriedrix/FlowKit
    ```
 5. Select the package and choose the version you want to install.
 6. Click `Add Package`.
 
-This will integrate the package into your project, allowing you to begin managing state using the Redux architecture in Swift.
+This will integrate the package into your project, allowing you to begin managing state using the UDF architecture in Swift.
 
 ## Architecture Overview
 
@@ -134,4 +134,4 @@ struct State: Storable {
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](https://github.com/pfriedrix/Redux/blob/main/LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](https://github.com/pfriedrix/FlowKit/blob/main/LICENSE) file for details.
