@@ -2,7 +2,7 @@
 
 # FlowKit
 
-This project provides a UDF-like architecture implemented in Swift, designed to manage state in applications effectively. It centralizes the application's state and logic, making the app's behavior predictable and easy to maintain.
+FlowKit is a Swift-based library that implements a Unidirectional Data Flow (UDF) architecture, designed to simplify state management within applications. It centralizes application state and logic, making your app's behavior more predictable, testable, and maintainable.
 
 ## Table of Contents
 
@@ -14,43 +14,43 @@ This project provides a UDF-like architecture implemented in Swift, designed to 
    - [Reducer](#reducer)
    - [Effect](#effect)
    - [Storage](#storage)
-6. [License](#license)
+   - [Persistable](#persistable)
+5. [License](#license)
 
 ## Introduction
 
-This project is inspired by the UDF architecture pattern and implemented in Swift. It is designed to help developers manage state in a centralized and predictable way, improving scalability and simplifying debugging. The core of the system revolves around a central `Store` that holds the app's state, and `Reducers` that specify how state should change in response to actions. Additionally, `Effects` handle asynchronous operations and other side effects.
+Inspired by the UDF architecture pattern, FlowKit provides a structured approach to managing state in Swift applications. With FlowKit, developers can centralize state in a single `Store`, apply updates through `Reducers`, and handle asynchronous tasks with `Effects`. This architecture provides a straightforward flow that scales easily and aids in debugging by making application state predictable and consistent.
 
 ## Installation
 
-To install this package using Swift Package Manager (SPM):
+To install FlowKit via Swift Package Manager (SPM):
 
 1. Open your Xcode project.
-2. Navigate to `File` > `Add Packages...`.
+2. Go to `File` > `Add Packages...`.
 3. Enter the following URL in the search bar:
    ```
    https://github.com/pfriedrix/FlowKit
    ```
-5. Select the package and choose the version you want to install.
-6. Click `Add Package`.
+4. Select the FlowKit package and choose the desired version.
+5. Click `Add Package`.
 
-This will integrate the package into your project, allowing you to begin managing state using the UDF architecture in Swift.
+This will add FlowKit to your project, enabling state management using UDF principles in Swift.
 
 ## Architecture Overview
 
-The architecture follows a unidirectional data flow, which makes the app's state predictable and easy to debug. The main components are:
+FlowKit follows a unidirectional data flow to make state changes predictable and easy to trace. The main components are:
 
-- **Store**: The central repository that holds the application's state. The store allows the state to be modified by dispatching actions.
-- **Action**: Actions describe events that have occurred, such as user interactions or external inputs like API responses.
-- **Reducer**: A pure function that takes the current state and an action as input, modifing the current state in place. It defines how the state transitions happen.
-- **Effect**: A component that manages side effects like network requests, I/O operations, or other asynchronous tasks.
+- **Store**: Holds the application’s state and allows updates via dispatched actions.
+- **Action**: Describes events that occur, like user interactions or external data updates.
+- **Reducer**: Pure functions that specify how the state transitions in response to actions.
+- **Effect**: Manages side effects, such as network requests and asynchronous operations.
+- **Persistable**: Extends `Storable` by automatically handling state persistence and restoration.
 
 ## Usage
 
 ### Store
 
-The `Store` is the central hub that holds the entire application’s state and manages how state transitions are handled by dispatching actions. It is initialized with an initial state and a reducer that updates the state based on dispatched actions.
-
-Example usage:
+The `Store` is the central component that maintains the application’s state. It initializes with an initial state and a reducer that specifies how actions change the state.
 
 ```swift
 let store = Store(initialState: AppReducer.State(), reducer: AppReducer())
@@ -58,7 +58,7 @@ let store = Store(initialState: AppReducer.State(), reducer: AppReducer())
 
 ### Reducer
 
-The `Reducer` is a pure function that determines how the state should change in response to an action. Reducers take the current state and an action as inputs and return a new state.
+A `Reducer` defines how state changes in response to actions. It takes the current state and an action, applies the necessary changes, and returns any `Effects` for asynchronous tasks.
 
 Example:
 
@@ -74,9 +74,9 @@ func appReducer(state: inout State, action: Action) -> Effect<Action> {
 
 ### Effect
 
-The `Effect` struct is used for handling side effects, such as asynchronous tasks or external dependencies. It supports operations like sending actions or running async tasks that might result in new actions being dispatched.
+`Effect` is used to handle side effects, such as network requests and other asynchronous operations. Effects can send actions or run async tasks that dispatch actions upon completion.
 
-Example of using an effect to handle async operations:
+Example of using an effect to handle async tasks:
 
 ```swift
 func reduce(into state: inout State, action: Action) -> Effect<Action> {
@@ -93,7 +93,7 @@ func reduce(into state: inout State, action: Action) -> Effect<Action> {
 }
 ```
 
-`Effect` can also send actions directly without async operations:
+`Effect` can also send direct actions without async tasks:
 
 ```swift
 func reduce(into state: inout State, action: Action) -> Effect<Action> {
@@ -109,9 +109,9 @@ func reduce(into state: inout State, action: Action) -> Effect<Action> {
 
 ### Storage
 
-The `Storable` protocol allows the state to be persisted between app sessions. Any state conforming to `Storable` can be saved and restored from persistent storage. This enables long-term storage of application data.
+FlowKit provides the `Storable` protocol for persisting state between app sessions. Conforming to `Storable` allows state to be saved and loaded automatically. Any state conforming to `Storable` can be saved to and restored from persistent storage, such as `UserDefaults`.
 
-A type that conforms to `Storable` must implement two key methods:
+To conform to `Storable`, implement these two methods:
 
 - `save()`: Saves the current state.
 - `load()`: Restores the saved state.
@@ -126,12 +126,40 @@ struct State: Storable {
         // Save the state
     }
 
-    static func load() -> AppState? {
+    static func load() -> State? {
         // Load and return the saved state
     }
 }
 ```
 
+### Persistable
+
+`Persistable` builds on `Storable` to streamline automatic state persistence in `UserDefaults`. By conforming to `Persistable`, state types are automatically assigned a unique key based on their type name, and gain default implementations for saving and loading to `UserDefaults`. This removes the need to manually implement `save()` and `load()`.
+
+To use `Persistable`, simply conform your state to `Persistable` and call the provided `save()` and `load()` methods.
+
+Example:
+
+```swift
+struct AppState: Persistable, Equatable {
+    var count: Int
+    var isLoggedIn: Bool
+}
+
+// Saving state
+let state = AppState(count: 5, isLoggedIn: true)
+state.save()
+
+// Loading state
+if let restoredState = AppState.load() {
+    print("Restored state: \(restoredState)")
+}
+```
+
+Using `Persistable` provides a convenient way to persist state with minimal setup, as it requires only `Codable` conformance for encoding and decoding.
+
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](https://github.com/pfriedrix/FlowKit/blob/main/LICENSE) file for details.
+This project is licensed under the MIT License. For details, see the [LICENSE](https://github.com/pfriedrix/FlowKit/blob/main/LICENSE) file.
+
+--- 
