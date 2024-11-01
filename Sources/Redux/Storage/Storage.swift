@@ -1,22 +1,3 @@
-import Foundation
-
-public protocol Storable {
-    
-    /// Saves the current state to persistent storage.
-    ///
-    /// This method should handle serializing and storing the current state
-    /// in a way that allows it to be restored later.
-    func save()
-    
-    /// Loads the state from persistent storage.
-    ///
-    /// This method should handle retrieving and deserializing the state from
-    /// storage. If no state is found, or if deserialization fails, it should return `nil`.
-    ///
-    /// - Returns: The loaded state, or `nil` if no valid state is found.
-    static func load() -> Self?
-}
-
 /// Extension of `Store` that adds persistent storage capabilities for state management.
 ///
 /// This extension allows the `Store` to automatically persist its state after each action
@@ -33,11 +14,11 @@ extension Store where State: Storable {
     /// - Parameters:
     ///   - reducer: The reducer that handles state updates and actions.
     ///   - defaultState: The default state to use if no saved state is found.
-    public convenience init(reducer: R, defaultState: State) {
-        let restoredState = Self.restore()
-        self.init(initial: restoredState ?? defaultState , reducer: reducer)
+    public convenience init(reducer: R, default state: State) {
+        let restored = Self.restore()
+        self.init(initial: restored ?? state , reducer: reducer)
         
-        if restoredState == nil {
+        if restored == nil {
             logger.info("State restored from storage: \(state)")
             state.save()
         } else {
@@ -99,38 +80,6 @@ extension Store where State: Storable {
                     self?.dispatch(action)
                 })
             }
-        }
-    }
-}
-
-extension Storable where Self: Codable {
-    
-    /// Saves the current state to UserDefaults.
-    ///
-    /// - Parameter key: The key under which the state will be saved.
-    public func save(forKey key: String) {
-        let encoder = JSONEncoder()
-        do {
-            let data = try encoder.encode(self)
-            UserDefaults.standard.set(data, forKey: key)
-        } catch {
-            print("Failed to save state: \(error)")
-        }
-    }
-    
-    /// Loads the state from UserDefaults.
-    ///
-    /// - Parameter key: The key under which the state is stored.
-    /// - Returns: The loaded state, or `nil` if no valid state is found.
-    public static func load(fromKey key: String) -> Self? {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
-        let decoder = JSONDecoder()
-        do {
-            let state = try decoder.decode(Self.self, from: data)
-            return state
-        } catch {
-            print("Failed to load state: \(error)")
-            return nil
         }
     }
 }
