@@ -9,12 +9,12 @@ final class BindingTests: XCTestCase {
             var anotherStateProperty: Int = 0
             var booleanFlag: Bool = false
             var nestedState: NestedState = NestedState()
-
+            
             struct NestedState: Equatable {
                 var someDeepProperty: String = "Initial Deep State"
             }
         }
-
+        
         enum Action {
             case updateSomeState(String)
             case updateAnotherState(Int)
@@ -24,41 +24,41 @@ final class BindingTests: XCTestCase {
             case complexMutation(someString: String, someInt: Int)
             case ignoreUpdate
         }
-
+        
         @MainActor
         func reduce(into state: inout State, action: Action) -> Effect<Action> {
             switch action {
             case .updateSomeState(let newValue):
                 state.someStateProperty = newValue
                 return .none
-
+                
             case .updateAnotherState(let newValue):
                 state.anotherStateProperty = newValue
                 return .none
-
+                
             case .updateBooleanFlag(let newValue):
                 state.booleanFlag = newValue
                 return .none
-
+                
             case .updateDeepNestedProperty(let newValue):
                 state.nestedState.someDeepProperty = newValue
                 return .none
-
+                
             case .resetState:
                 state = State() // Скидання до початкового стану
                 return .none
-
+                
             case .complexMutation(let someString, let someInt):
                 state.someStateProperty = someString
                 state.anotherStateProperty = someInt
                 return .none
-
+                
             case .ignoreUpdate:
                 return .none
             }
         }
     }
-
+    
     
     // MARK: - Test Helper Function
     
@@ -285,4 +285,78 @@ final class BindingTests: XCTestCase {
         XCTAssertEqual(store.state.anotherStateProperty, 99, "The integer state should be updated.")
     }
     
+    // Test the `binding(for:)` method to ensure it correctly reads the initial state without an action.
+    func testBindingGetsInitialStateWithoutAction() {
+        let store = createStore()
+        
+        let binding = store.binding(for: \.someStateProperty)
+        
+        // Assert that the initial state value is read correctly
+        XCTAssertEqual(binding.wrappedValue, "Initial State", "The binding should correctly return the initial state value without an action.")
+    }
+    
+    // Test the `binding(for:)` method to ensure it correctly updates the state without an action.
+    func testBindingUpdatesStateWithoutAction() async throws {
+        let store = createStore()
+        
+        let binding = store.binding(for: \.someStateProperty)
+        
+        // Modify the binding's value (this should update the state directly)
+        binding.wrappedValue = "Updated State Without Action"
+        
+        // Wait for the state to be updated
+        try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
+        
+        // Assert that the state is updated as expected
+        XCTAssertEqual(store.state.someStateProperty, "Updated State Without Action", "The state should update directly when the binding is modified without an action.")
+    }
+    
+    // Test that multiple bindings update independently without actions.
+    func testMultipleBindingsUpdateIndependentlyWithoutAction() async throws {
+        let store = createStore()
+        
+        // Create bindings for two different properties without actions
+        let stringBinding = store.binding(for: \.someStateProperty)
+        let intBinding = store.binding(for: \.anotherStateProperty)
+        
+        // Modify both bindings
+        stringBinding.wrappedValue = "Updated String Without Action"
+        intBinding.wrappedValue = 42
+        
+        // Wait for the state to be updated
+        try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
+        
+        // Assert that both state properties were updated independently
+        XCTAssertEqual(store.state.someStateProperty, "Updated String Without Action", "The string state should be updated independently without an action.")
+        XCTAssertEqual(store.state.anotherStateProperty, 42, "The integer state should be updated independently without an action.")
+    }
+    
+    // Test that bindings are isolated: changes in one binding do not affect another binding without actions.
+    func testBindingsAreIsolatedWithoutAction() async throws {
+        let store = createStore()
+        
+        // Create two bindings for separate properties without actions
+        let stringBinding = store.binding(for: \.someStateProperty)
+        let intBinding = store.binding(for: \.anotherStateProperty)
+        
+        // Modify the string binding first
+        stringBinding.wrappedValue = "Updated String Without Action"
+        
+        // Wait for the state to be updated
+        try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
+        
+        // Assert only the string state was updated
+        XCTAssertEqual(store.state.someStateProperty, "Updated String Without Action", "Only the string state should be updated without an action.")
+        XCTAssertEqual(store.state.anotherStateProperty, 0, "The integer state should remain unaffected without an action.")
+        
+        // Now modify the int binding
+        intBinding.wrappedValue = 99
+        
+        // Wait for the state to be updated
+        try await Task.sleep(nanoseconds: 100_000_000)  // 0.1 seconds
+        
+        // Assert the integer state was updated, string remains the same
+        XCTAssertEqual(store.state.someStateProperty, "Updated String Without Action", "The string state should remain the same without an action.")
+        XCTAssertEqual(store.state.anotherStateProperty, 99, "The integer state should be updated without an action.")
+    }
 }

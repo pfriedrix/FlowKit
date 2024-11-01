@@ -42,6 +42,24 @@ extension Store {
             }
         )
     }
+    
+    /// Creates a `Binding` for a property in the store's state, automatically updating the state.
+    /// - Parameter keyPath: A key path to the specific property in the store's state that you want to bind to.
+    /// - Returns: A `Binding` that allows SwiftUI views to read and write to the value at the specified key path.
+    public func binding<Value>(for keyPath: WritableKeyPath<State, Value>) -> Binding<Value> {
+        Binding(
+            get: { [weak self] in
+                guard let self = self else { fatalError("Store is deallocated") }
+                return self.state[keyPath: keyPath]
+            },
+            set: { [weak self] newValue in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    self.state[keyPath: keyPath] = newValue
+                }
+            }
+        )
+    }
 }
 
 extension Store where State: Storable {
@@ -86,6 +104,24 @@ extension Store where State: Storable {
                 guard let self = self else { return }
                 DispatchQueue.main.async {
                     self.dispatch(action)
+                }
+            }
+        )
+    }
+    
+    /// Creates a `Binding` for a property in the store's state, automatically updating the state.
+    /// - Parameter keyPath: A key path to the specific property in the store's state that you want to bind to.
+    /// - Returns: A `Binding` that allows SwiftUI views to read and write to the value at the specified key path.
+    public func binding<Value>(for keyPath: WritableKeyPath<State, Value>) -> Binding<Value> {
+        Binding(
+            get: { [weak self] in
+                guard let self = self else { fatalError("Store is deallocated") }
+                return self.state[keyPath: keyPath]
+            },
+            set: { [weak self] newValue in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    self.state[keyPath: keyPath] = newValue
                 }
             }
         )
