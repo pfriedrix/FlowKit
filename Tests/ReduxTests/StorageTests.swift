@@ -66,7 +66,7 @@ class StorageTests: XCTestCase {
         let reducer = MockReducer()
         
         // When
-        let store = Store(reducer: reducer, defaultState: initialState)
+        let store = Store(reducer: reducer, default: initialState)
         store.dispatch(.increment)
         
         // Then
@@ -84,7 +84,7 @@ class StorageTests: XCTestCase {
         let reducer = MockReducer()
         
         // When
-        let store = Store(reducer: reducer, defaultState: MockReducer.State(value: 0))
+        let store = Store(reducer: reducer, default: MockReducer.State(value: 0))
         
         // Then
         XCTAssertEqual(store.state.value, 42)
@@ -98,7 +98,7 @@ class StorageTests: XCTestCase {
         let reducer = MockReducer()
         
         // When
-        let store = Store(reducer: reducer, defaultState: initialState)
+        let store = Store(reducer: reducer, default: initialState)
         store.dispatch(.increment)  // +1
         store.dispatch(.increment)  // +1
         store.dispatch(.decrement)  // -1
@@ -118,7 +118,7 @@ class StorageTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "MockState")
         
         // When
-        let store = Store(reducer: reducer, defaultState: MockReducer.State(value: 10))
+        let store = Store(reducer: reducer, default: MockReducer.State(value: 10))
         
         // Then
         XCTAssertEqual(store.state.value, 10)  // Default state should be used
@@ -131,7 +131,7 @@ class StorageTests: XCTestCase {
         let reducer = MockReducer()
 
         // When
-        let store = Store(reducer: reducer, defaultState: initialState)
+        let store = Store(reducer: reducer, default: initialState)
         store.dispatch(.increment)  // +1
         store.dispatch(.increment)  // +1
         store.dispatch(.decrement)  // -1
@@ -150,7 +150,7 @@ class StorageTests: XCTestCase {
         let reducer = MockReducer()
 
         // When
-        let store = Store(reducer: reducer, defaultState: MockReducer.State(value: 0))
+        let store = Store(reducer: reducer, default: MockReducer.State(value: 0))
         store.dispatch(.decrement)  // 10 -> 9
 
         // Then
@@ -203,7 +203,7 @@ class StorageTests: XCTestCase {
         let reducer = EffectReducer()
 
         // When
-        let store = Store(reducer: reducer, defaultState: initialState)
+        let store = Store(reducer: reducer, default: initialState)
         store.dispatch(.increment)  // +1, then trigger decrement -> -1
 
         // Then
@@ -251,7 +251,7 @@ class StorageTests: XCTestCase {
         let reducer = NonNegativeReducer()
 
         // When
-        let store = Store(reducer: reducer, defaultState: initialState)
+        let store = Store(reducer: reducer, default: initialState)
         store.dispatch(.decrement)  // Try to decrement below zero
 
         // Then
@@ -304,7 +304,7 @@ class StorageTests: XCTestCase {
         let reducer = AsyncEffectReducer()
 
         // When
-        let store = Store(reducer: reducer, defaultState: initialState)
+        let store = Store(reducer: reducer, default: initialState)
         store.dispatch(.increment)
 
         // Wait for 2 seconds to allow the async effect to complete

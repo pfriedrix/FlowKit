@@ -24,17 +24,60 @@ struct SampleReducer: Reducer {
     }
 }
 
+// Reducer A with `State` struct conforming to `Persistable`
+struct ReducerA: Reducer {
+    struct State: Persistable, Equatable {
+        var value: String
+    }
+    
+    enum Action {
+        case updateValue(String)
+    }
+    
+    @MainActor
+    func reduce(into state: inout State, action: Action) -> Effect<Action> {
+        switch action {
+        case .updateValue(let newValue):
+            state.value = newValue
+            return .none
+        }
+    }
+}
+
+// Reducer B with a different `State` struct but same name, also conforming to `Persistable`
+struct ReducerB: Reducer {
+    struct State: Persistable, Equatable {
+        var value: String
+    }
+    
+    enum Action {
+        case updateValue(String)
+    }
+    
+    @MainActor
+    func reduce(into state: inout State, action: Action) -> Effect<Action> {
+        switch action {
+        case .updateValue(let newValue):
+            state.value = newValue
+            return .none
+        }
+    }
+}
 
 final class PersistableTests: XCTestCase {
     
     override func setUp() {
         super.setUp()
         // Clear UserDefaults before each test
+        UserDefaults.standard.removeObject(forKey: ReducerA.State.key)
+        UserDefaults.standard.removeObject(forKey: ReducerB.State.key)
         UserDefaults.standard.removeObject(forKey: TestState.key)
     }
     
     override func tearDown() {
         // Clear UserDefaults after each test
+        UserDefaults.standard.removeObject(forKey: ReducerA.State.key)
+        UserDefaults.standard.removeObject(forKey: ReducerB.State.key)
         UserDefaults.standard.removeObject(forKey: TestState.key)
         super.tearDown()
     }
@@ -113,5 +156,22 @@ final class PersistableTests: XCTestCase {
         let store = Store<SampleReducer>(reducer: SampleReducer(), default: TestState(value: "Default"))
         
         XCTAssertEqual(store.state.value, "Default", "Store should fall back to default state when decoding fails.")
+    }
+    
+    func testStatesWithSameNameDoNotOverwriteEachOther() {
+        let reducerAState = ReducerA.State(value: "Reducer A Value")
+        let reducerBState = ReducerB.State(value: "Reducer B Value")
+        
+        // Save both states
+        reducerAState.save()
+        reducerBState.save()
+        
+        // Load each state separately
+        let loadedReducerAState = ReducerA.State.load()
+        let loadedReducerBState = ReducerB.State.load()
+        
+        // Verify that they do not overwrite each other
+        XCTAssertEqual(loadedReducerAState?.value, "Reducer A Value", "ReducerA.State should retain its own saved value.")
+        XCTAssertEqual(loadedReducerBState?.value, "Reducer B Value", "ReducerB.State should retain its own saved value.")
     }
 }

@@ -17,7 +17,7 @@ extension Persistable {
     /// By default, this key is generated using the type name of the conforming object,
     /// ensuring uniqueness for each type. Override this property if a custom key is needed.
     static var key: String {
-        String(describing: Self.self)
+        "\(String(reflecting: Self.self))"
     }
     
     /// Saves the current state to `UserDefaults`.
