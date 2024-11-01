@@ -1,5 +1,5 @@
 import XCTest
-@testable import Redux
+@testable import FlowKit
 
 final class StoreTests: XCTestCase {
     

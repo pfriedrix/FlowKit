@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import Redux
+@testable import FlowKit
 
 final class BindingTests: XCTestCase {
     struct AppReducer: Reducer {

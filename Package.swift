@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Redux",
+    name: "FlowKit",
     platforms: [
         .iOS(.v15),
         .macOS(.v12),
@@ -13,16 +13,16 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "Redux",
-            targets: ["Redux"]),
+            name: "FlowKit",
+            targets: ["FlowKit"]),
     ],
     targets: [
         .target(
-            name: "Redux"),
+            name: "FlowKit"),
         .testTarget(
             name: "Tests",
             dependencies: [
-                "Redux"
+                "FlowKit"
             ]
         )
     ]

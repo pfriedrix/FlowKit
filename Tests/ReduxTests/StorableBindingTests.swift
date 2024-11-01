@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import Redux
+@testable import FlowKit
 
 final class StorableBindingTests: XCTestCase {
 
