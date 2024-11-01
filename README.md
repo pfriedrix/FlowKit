@@ -1,6 +1,6 @@
 ---
 
-# Redux
+# FlowKit
 
 This project provides a Redux-like architecture implemented in Swift, designed to manage state in applications effectively. It centralizes the application's state and logic, making the app's behavior predictable and easy to maintain.
 
