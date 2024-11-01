@@ -28,12 +28,12 @@ To install this package using Swift Package Manager (SPM):
 2. Navigate to `File` > `Add Packages...`.
 3. Enter the following URL in the search bar:
    ```
-   https://github.com/pfriedrix/Redux
+   https://github.com/pfriedrix/FlowKit
    ```
 5. Select the package and choose the version you want to install.
 6. Click `Add Package`.
 
-This will integrate the package into your project, allowing you to begin managing state using the Redux architecture in Swift.
+This will integrate the package into your project, allowing you to begin managing state using the UDF architecture in Swift.
 
 ## Architecture Overview
 
@@ -134,4 +134,4 @@ struct State: Storable {
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](https://github.com/pfriedrix/Redux/blob/main/LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](https://github.com/pfriedrix/FlowKit/blob/main/LICENSE) file for details.
