@@ -131,19 +131,19 @@ final class PersistableTests: XCTestCase {
         XCTAssertEqual(store.state.value, "Restored value", "Store should initialize with restored state from UserDefaults.")
     }
     
-    /// Test that Store saves state to UserDefaults after dispatching an action
+    /// Test that Store saves state to UserDefaults after sending an action
     @MainActor
     func testStoreSavesStateAfterDispatch() {
         let initialState = TestState(value: "Initial")
         let store = Store<SampleReducer>(reducer: SampleReducer(), default: initialState)
         
         // Dispatch an action to update state
-        store.dispatch(.updateValue("Updated"))
+        store.send(.updateValue("Updated"))
         
         // Load the saved state from UserDefaults
         let savedState = TestState.load()
         
-        XCTAssertEqual(savedState?.value, "Updated", "Store should save updated state to UserDefaults after dispatching an action.")
+        XCTAssertEqual(savedState?.value, "Updated", "Store should save updated state to UserDefaults after sending an action.")
     }
     
     /// Test that Store returns nil for loadState when UserDefaults has incompatible data

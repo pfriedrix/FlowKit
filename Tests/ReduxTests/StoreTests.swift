@@ -40,10 +40,10 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(store.state.message, "")
     }
     
-    // Test 2: Ensure that the state is updated when an increment action is dispatched.
+    // Test 2: Ensure that the state is updated when an increment action is sended.
     @MainActor
     func testIncrementAction() throws {
-        store.dispatch(.increment)
+        store.send(.increment)
         
         // Wait for state change
         waitForStateChange(timeout: 1.0) {
@@ -53,10 +53,10 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(store.state.count, 1)
     }
     
-    // Test 3: Ensure that the state is updated when a setMessage action is dispatched.
+    // Test 3: Ensure that the state is updated when a setMessage action is sended.
     @MainActor
     func testSetMessageAction() throws {
-        store.dispatch(.setMessage("Hello, World!"))
+        store.send(.setMessage("Hello, World!"))
         
         // Wait for state change
         waitForStateChange(timeout: 1.0) {
@@ -69,7 +69,7 @@ final class StoreTests: XCTestCase {
     // Test 4: Ensure that the state is updated correctly for a combined action (incrementAndSetMessage).
     @MainActor
     func testIncrementAndSetMessageAction() throws {
-        store.dispatch(.incrementAndSetMessage("Updated"))
+        store.send(.incrementAndSetMessage("Updated"))
         
         // Wait for state change
         waitForStateChange(timeout: 1.0) {
@@ -86,7 +86,7 @@ final class StoreTests: XCTestCase {
         let reducer = RecursiveReducer()
         let recursiveStore = Store(initial: RecursiveReducer.State(), reducer: reducer)
         
-        recursiveStore.dispatch(.triggerRecursion)
+        recursiveStore.send(.triggerRecursion)
         
         // Wait for state change
         waitForStateChange(timeout: 2.0) {
@@ -96,16 +96,16 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(recursiveStore.state.value, 2)
     }
     
-    // Test 6: Simultaneous dispatches should update the state concurrently.
+    // Test 6: Simultaneous sendes should update the state concurrently.
     @MainActor
     func testConcurrentStateUpdates() throws {
         // Dispatch two actions concurrently
         Task {
-            store.dispatch(.setMessage("Concurrent Update 1"))
+            store.send(.setMessage("Concurrent Update 1"))
         }
         
         Task {
-            store.dispatch(.increment)
+            store.send(.increment)
         }
         
         // Wait for state to reflect both changes
@@ -117,13 +117,13 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(store.state.count, 1)
     }
     
-    // Test 7: Sequential updates with fast dispatch should update state correctly in order.
+    // Test 7: Sequential updates with fast send should update state correctly in order.
     @MainActor
     func testSequentialFastDispatch() throws {
         // Dispatch actions quickly in sequence
-        store.dispatch(.increment)
-        store.dispatch(.incrementAndSetMessage("Message After Two Increments"))
-        store.dispatch(.increment)
+        store.send(.increment)
+        store.send(.incrementAndSetMessage("Message After Two Increments"))
+        store.send(.increment)
         
         // Wait for the state to reflect all changes
         waitForStateChange(timeout: 1.0) {
@@ -134,16 +134,16 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(store.state.message, "Message After Two Increments")
     }
     
-    // Test 8: Verify state integrity when multiple actions are dispatched at the same time.
+    // Test 8: Verify state integrity when multiple actions are sended at the same time.
     @MainActor
     func testStateIntegrityWithConcurrentDispatch() throws {
         // Dispatch two actions concurrently
         Task {
-            store.dispatch(.setMessage("Concurrent Update 2"))
+            store.send(.setMessage("Concurrent Update 2"))
         }
         
         Task {
-            store.dispatch(.incrementAndSetMessage("Updated Message"))
+            store.send(.incrementAndSetMessage("Updated Message"))
         }
         
         // Wait for both actions to take effect
@@ -159,9 +159,9 @@ final class StoreTests: XCTestCase {
     @MainActor
     func testMultipleSequentialMessageUpdates() throws {
         // Dispatch multiple setMessage actions in sequence
-        store.dispatch(.setMessage("First Message"))
-        store.dispatch(.setMessage("Second Message"))
-        store.dispatch(.setMessage("Third Message"))
+        store.send(.setMessage("First Message"))
+        store.send(.setMessage("Second Message"))
+        store.send(.setMessage("Third Message"))
         
         // Wait for the state to reflect the last update
         waitForStateChange(timeout: 1.0) {
@@ -176,19 +176,19 @@ final class StoreTests: XCTestCase {
     func testRaceConditionPrevention() throws {
         // Dispatch multiple actions concurrently
         Task {
-            store.dispatch(.setMessage("Message 1"))
+            store.send(.setMessage("Message 1"))
         }
         
         Task {
-            store.dispatch(.setMessage("Message 2"))
+            store.send(.setMessage("Message 2"))
         }
         
         Task {
-            store.dispatch(.increment)
+            store.send(.increment)
         }
         
         Task {
-            store.dispatch(.increment)
+            store.send(.increment)
         }
         
         // Wait for all changes to be reflected in the state
@@ -207,7 +207,7 @@ final class StoreTests: XCTestCase {
         let store = Store(initial: SideEffectReducer.State(), reducer: reducer)
 
         // Dispatch an async action that triggers a side effect
-        store.dispatch(.fetchData)
+        store.send(.fetchData)
 
         // Wait for the side effect to complete
         try await Task.sleep(nanoseconds: 500_000_000)  // 0.5 seconds
@@ -224,11 +224,11 @@ final class StoreTests: XCTestCase {
 
         // Dispatch two async actions concurrently
         Task {
-            store.dispatch(.fetchData)
+            store.send(.fetchData)
         }
         
         Task {
-            store.dispatch(.updateData("New Data"))
+            store.send(.updateData("New Data"))
         }
 
         // Wait for a shorter time to allow `updateData` to complete before `fetchData` finishes
@@ -246,15 +246,15 @@ final class StoreTests: XCTestCase {
 
         // Dispatch multiple actions simultaneously
         Task {
-            store.dispatch(.setMessage("Message 1"))
+            store.send(.setMessage("Message 1"))
         }
 
         Task {
-            store.dispatch(.setMessage("Message 2"))
+            store.send(.setMessage("Message 2"))
         }
 
         Task {
-            store.dispatch(.increment)
+            store.send(.increment)
         }
 
         // Wait for the state to reflect all changes
@@ -273,7 +273,7 @@ final class StoreTests: XCTestCase {
         let store = Store(initial: RollbackReducer.State(), reducer: reducer)
 
         // Dispatch an action that triggers a rollback if a condition is met
-        store.dispatch(.incrementWithCondition(shouldRollback: true))
+        store.send(.incrementWithCondition(shouldRollback: true))
 
         // Wait for the state update
         try await Task.sleep(nanoseconds: 500_000_000)  // 0.5 seconds
@@ -289,8 +289,8 @@ final class StoreTests: XCTestCase {
         let store = Store(initial: ComplexReducer.State(), reducer: reducer)
 
         // Dispatch multiple complex actions in sequence
-        store.dispatch(.complexMutation("Update 1", 10))
-        store.dispatch(.complexMutation("Update 2", 20))
+        store.send(.complexMutation("Update 1", 10))
+        store.send(.complexMutation("Update 2", 20))
 
         // Wait for the state to reflect all changes
         waitForStateChange(timeout: 1.0) {

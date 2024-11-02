@@ -17,7 +17,7 @@ extension Store {
             set: { [weak self] newValue in
                 guard let self = self else { return }
                 DispatchQueue.main.async {
-                    self.dispatch(action(newValue))
+                    self.send(action(newValue))
                 }
             }
         )
@@ -37,7 +37,7 @@ extension Store {
             set: { [weak self] _ in
                 guard let self = self else { return }
                 DispatchQueue.main.async {
-                    self.dispatch(action)
+                    self.send(action)
                 }
             }
         )
@@ -83,7 +83,7 @@ extension Store where State: Storable {
             set: { [weak self] newValue in
                 guard let self = self else { return }
                 DispatchQueue.main.async {
-                    self.dispatch(action(newValue))
+                    self.send(action(newValue))
                 }
             }
         )
@@ -103,7 +103,7 @@ extension Store where State: Storable {
             set: { [weak self] _ in
                 guard let self = self else { return }
                 DispatchQueue.main.async {
-                    self.dispatch(action)
+                    self.send(action)
                 }
             }
         )

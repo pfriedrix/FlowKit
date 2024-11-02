@@ -131,7 +131,7 @@ final class StorableBindingTests: XCTestCase {
         try await Task.sleep(nanoseconds: 100_000_000)
         
         // Dispatch the reset action
-        store.dispatch(.resetState)
+        store.send(.resetState)
 
         // Ensure the state is reset and saved
         let savedState = AppReducer.State.load()

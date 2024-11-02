@@ -43,22 +43,23 @@ class StorageTests: XCTestCase {
     // This runs before each test to ensure a clean slate.
     override func setUp() {
         super.setUp()
-        UserDefaults.standard.removeObject(forKey: "MockState") // Clear saved state
-        UserDefaults.standard.removeObject(forKey: "AsyncEffectState")
-        UserDefaults.standard.removeObject(forKey: "EffectState")
-        UserDefaults.standard.removeObject(forKey: "NonNegativeState")
+        clearUserDefaults()
     }
     
     // This runs after each test to clean up the state.
     override func tearDown() {
-        UserDefaults.standard.removeObject(forKey: "MockState") // Clean up after each test
-        UserDefaults.standard.removeObject(forKey: "AsyncEffectState")
-        UserDefaults.standard.removeObject(forKey: "EffectState")
-        UserDefaults.standard.removeObject(forKey: "NonNegativeState")
+        clearUserDefaults()
         super.tearDown()
     }
     
-    // Test that state is saved after dispatching an action
+    private func clearUserDefaults() {
+        if let appDomain = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: appDomain)
+        }
+        UserDefaults.standard.synchronize()
+    }
+    
+    // Test that state is saved after sending an action
     @MainActor
     func testStateSaving() {
         // Given
@@ -67,7 +68,7 @@ class StorageTests: XCTestCase {
         
         // When
         let store = Store(reducer: reducer, default: initialState)
-        store.dispatch(.increment)
+        store.send(.increment)
         
         // Then
         let savedState = MockReducer.State.load()
@@ -99,9 +100,9 @@ class StorageTests: XCTestCase {
         
         // When
         let store = Store(reducer: reducer, default: initialState)
-        store.dispatch(.increment)  // +1
-        store.dispatch(.increment)  // +1
-        store.dispatch(.decrement)  // -1
+        store.send(.increment)  // +1
+        store.send(.increment)  // +1
+        store.send(.decrement)  // -1
         
         // Then
         let savedState = MockReducer.State.load()
@@ -132,9 +133,9 @@ class StorageTests: XCTestCase {
 
         // When
         let store = Store(reducer: reducer, default: initialState)
-        store.dispatch(.increment)  // +1
-        store.dispatch(.increment)  // +1
-        store.dispatch(.decrement)  // -1
+        store.send(.increment)  // +1
+        store.send(.increment)  // +1
+        store.send(.decrement)  // -1
 
         // Then
         let savedState = MockReducer.State.load()
@@ -151,7 +152,7 @@ class StorageTests: XCTestCase {
 
         // When
         let store = Store(reducer: reducer, default: MockReducer.State(value: 0))
-        store.dispatch(.decrement)  // 10 -> 9
+        store.send(.decrement)  // 10 -> 9
 
         // Then
         let updatedState = MockReducer.State.load()
@@ -161,20 +162,8 @@ class StorageTests: XCTestCase {
     @MainActor
     func testEffectHandlingInReducer() {
         struct EffectReducer: Reducer {
-            struct State: Storable, Codable, Equatable {
+            struct State: Persistable, Equatable {
                 var value: Int
-                func save() {
-                    if let data = try? JSONEncoder().encode(self) {
-                        UserDefaults.standard.set(data, forKey: "EffectState")
-                    }
-                }
-                static func load() -> State? {
-                    guard let data = UserDefaults.standard.data(forKey: "EffectState"),
-                          let state = try? JSONDecoder().decode(State.self, from: data) else {
-                        return nil
-                    }
-                    return state
-                }
             }
 
             enum Action {
@@ -204,7 +193,7 @@ class StorageTests: XCTestCase {
 
         // When
         let store = Store(reducer: reducer, default: initialState)
-        store.dispatch(.increment)  // +1, then trigger decrement -> -1
+        store.send(.increment)  // +1, then trigger decrement -> -1
 
         // Then
         let savedState = EffectReducer.State.load()
@@ -252,7 +241,7 @@ class StorageTests: XCTestCase {
 
         // When
         let store = Store(reducer: reducer, default: initialState)
-        store.dispatch(.decrement)  // Try to decrement below zero
+        store.send(.decrement)  // Try to decrement below zero
 
         // Then
         let savedState = NonNegativeReducer.State.load()
@@ -262,7 +251,7 @@ class StorageTests: XCTestCase {
     @MainActor
     func testAsyncEffectHandling() async throws {
         struct AsyncEffectReducer: Reducer {
-            struct State: Storable, Codable, Equatable {
+            struct State: Persistable, Equatable {
                 var value: Int
                 func save() {
                     if let data = try? JSONEncoder().encode(self) {
@@ -305,7 +294,7 @@ class StorageTests: XCTestCase {
 
         // When
         let store = Store(reducer: reducer, default: initialState)
-        store.dispatch(.increment)
+        store.send(.increment)
 
         // Wait for 2 seconds to allow the async effect to complete
         try await Task.sleep(nanoseconds: 2_000_000_000)

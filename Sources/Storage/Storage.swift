@@ -36,13 +36,29 @@ extension Store where State: Storable {
         State.load()
     }
     
-    /// Dispatches an action to the store, triggering state updates and persisting the new state.
+    /// Sends an action to the store, triggering a state update.
     ///
-    /// This method asynchronously processes an action, allowing the reducer to apply changes to the state.
-    /// After the state is updated, it is immediately saved to persistent storage using the `Storable.save()` method.
-    /// All state changes are applied within the main actor context to ensure thread safety.
+    /// This method processes the action through the reducer, applies any state updates, and
+    /// triggers associated effects, which may include additional actions or asynchronous operations.
     ///
-    /// - Parameter action: The action to be dispatched to the reducer for processing.
+    /// - Parameter action: The action to send to the reducer for processing.
+    @MainActor
+    public func send(_ action: Action) {
+        logger.debug("Dispatching action: \(action)")
+        
+        dispatch(state, action)
+        objectWillChange.send()
+    }
+    
+    /// Dispatches an action to the store, triggering a state update.
+    /// This method is deprecated. Please use `send(_:)` instead.
+    ///
+    /// The action is sent to the reducer, which processes it and returns an effect that
+    /// may update the state and/or trigger additional actions. The state is then updated
+    /// on the main thread.
+    ///
+    /// - Parameter action: The action to dispatch to the reducer.
+    @available(*, deprecated, message: "Use `send(_:)` instead for triggering actions.")
     @MainActor
     public func dispatch(_ action: Action) {
         logger.debug("Dispatching action: \(action)")
@@ -61,23 +77,30 @@ extension Store where State: Storable {
     ///   - state: The current state to be updated.
     ///   - action: The action to apply to the state.
     @MainActor
-    internal func dispatch(_ state: State, _ action: Action) {
-        var currentState = state
-        let effect = reducer.reduce(into: &currentState, action: action)
+    private func dispatch(_ state: State, _ action: Action) {
+        let effect = resolve(state, action)
         
-        logger.info("New state after action \(action): \(currentState)")
-        
-        self.state = currentState
         self.state.save()
         
+        handle(effect)
+    }
+    
+    /// Handles the provided effect, performing any operations or additional actions it specifies.
+    ///
+    /// This method executes the effect's operation, which may be synchronous or asynchronous.
+    /// Asynchronous operations are scheduled with a task to ensure proper execution.
+    ///
+    /// - Parameter effect: The effect to be handled.
+    @MainActor
+    private func handle(_ effect: Effect<Action>) {
         switch effect.operation {
         case .none: return
         case let .send(action):
-            dispatch(action)
+            send(action)
         case let .run(priority, operation):
-            Task(priority: priority) { [ weak self ] in
+            Task(priority: priority) { [weak self] in
                 await operation(Send { action in
-                    self?.dispatch(action)
+                    self?.send(action)
                 })
             }
         }

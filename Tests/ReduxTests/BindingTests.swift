@@ -78,7 +78,7 @@ final class BindingTests: XCTestCase {
         XCTAssertEqual(binding.wrappedValue, "Initial State", "The binding should correctly return the initial state value.")
     }
     
-    // Test the `binding(for:set:)` method to ensure it correctly dispatches an action and updates the state.
+    // Test the `binding(for:set:)` method to ensure it correctly sendes an action and updates the state.
     func testBindingUpdatesState() async throws {
         let store = createStore()
         
@@ -96,7 +96,7 @@ final class BindingTests: XCTestCase {
         XCTAssertEqual(store.state.someStateProperty, "Updated State", "The state should update when the binding is modified.")
     }
     
-    // Test predefined action dispatch using the binding.
+    // Test predefined action send using the binding.
     func testPredefinedActionDispatch() async throws {
         let store = createStore()
         
@@ -173,7 +173,7 @@ final class BindingTests: XCTestCase {
     
     // MARK: - Test Complex Cases with Async Waits
     
-    // Test binding with nested state and async dispatch
+    // Test binding with nested state and async send
     func testBindingWithNestedStateAsync() async throws {
         let store = createStore()
         
@@ -192,7 +192,7 @@ final class BindingTests: XCTestCase {
         XCTAssertEqual(store.state.nestedState.someDeepProperty, "Updated Deep Value", "The deeply nested state should be updated.")
     }
     
-    // Test binding updates with async dispatch
+    // Test binding updates with async send
     func testBindingUpdatesStateAsync() async throws {
         let store = createStore()
         
@@ -210,7 +210,7 @@ final class BindingTests: XCTestCase {
         XCTAssertEqual(store.state.someStateProperty, "Updated State", "The state should update after the binding is modified.")
     }
     
-    // Test predefined action dispatch with async state update
+    // Test predefined action send with async state update
     func testPredefinedActionDispatchAsync() async throws {
         let store = createStore()
         
@@ -267,7 +267,7 @@ final class BindingTests: XCTestCase {
         // Modify the string binding first
         stringBinding.wrappedValue = "Updated String"
         
-        // Wait for async dispatch to complete
+        // Wait for async send to complete
         try await Task.sleep(nanoseconds: 100_000_000)
         
         // Assert only the string state was updated
@@ -277,7 +277,7 @@ final class BindingTests: XCTestCase {
         // Now modify the int binding
         intBinding.wrappedValue = 99
         
-        // Wait for async dispatch to complete
+        // Wait for async send to complete
         try await Task.sleep(nanoseconds: 100_000_000)
         
         // Assert the integer state was updated, string remains the same
