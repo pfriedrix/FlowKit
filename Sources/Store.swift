@@ -24,10 +24,10 @@ final public class Store<R: Reducer>: ObservableObject {
     public internal(set) var state: State
     
     /// The reducer responsible for handling actions and updating the state.
-    internal let reducer: R
+    let reducer: R
     
     /// Logger instance for tracking state changes and actions.
-    internal let logger = Logger.shared
+    let logger = Logger.shared
     
     /// Initializes the store with an initial state and a reducer.
     ///
@@ -38,24 +38,6 @@ final public class Store<R: Reducer>: ObservableObject {
         self.state = initial
         self.reducer = reducer
         logger.info("Store initialized with state: \(state)")
-    }
-    
-    /// Dispatches an action to the store, triggering a state update.
-    ///
-    /// > Warning: This method is deprecated. Please use `send(_:)` instead.
-    ///
-    /// The action is sent to the reducer, which processes it and returns an effect that
-    /// may update the state and/or trigger additional actions. The state is then updated
-    /// on the main thread.
-    ///
-    /// - Parameter action: The action to dispatch to the reducer.
-    @available(*, deprecated, message: "Use `send(_:)` instead for triggering actions.")
-    @MainActor
-    public func dispatch(_ action: Action) {
-        logger.debug("Dispatching action: \(action)")
-        
-        dispatch(state, action)
-        objectWillChange.send()
     }
     
     /// Sends an action to the store, triggering a state update.

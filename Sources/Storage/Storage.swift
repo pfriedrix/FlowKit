@@ -50,23 +50,6 @@ extension Store where State: Storable {
         objectWillChange.send()
     }
     
-    /// Dispatches an action to the store, triggering a state update.
-    /// This method is deprecated. Please use `send(_:)` instead.
-    ///
-    /// The action is sent to the reducer, which processes it and returns an effect that
-    /// may update the state and/or trigger additional actions. The state is then updated
-    /// on the main thread.
-    ///
-    /// - Parameter action: The action to dispatch to the reducer.
-    @available(*, deprecated, message: "Use `send(_:)` instead for triggering actions.")
-    @MainActor
-    public func dispatch(_ action: Action) {
-        logger.debug("Dispatching action: \(action)")
-        
-        dispatch(state, action)
-        objectWillChange.send()
-    }
-    
     /// Handles the core logic for dispatching an action, reducing the state, and processing effects.
     ///
     /// This method uses the provided action to update the current state, then saves the updated state to storage.

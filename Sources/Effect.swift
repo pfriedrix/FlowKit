@@ -7,7 +7,6 @@
 /// - Parameters:
 ///   - Action: The type of action the effect can dispatch.
 public struct Effect<Action> {
-    
     /// An enumeration describing the types of operations an `Effect` can perform.
     ///
     /// - `none`: Represents the absence of an effect.

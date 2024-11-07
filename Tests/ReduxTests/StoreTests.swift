@@ -16,24 +16,6 @@ final class StoreTests: XCTestCase {
         super.tearDown()
     }
     
-    // Utility function to wait for async state changes
-    func waitForStateChange(timeout: TimeInterval, condition: @escaping () -> Bool) {
-        let expectation = XCTestExpectation(description: "State change")
-        
-        // Poll the state periodically until the condition is met
-        let pollInterval: TimeInterval = 0.05
-        var elapsedTime: TimeInterval = 0
-        _ = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { timer in
-            elapsedTime += pollInterval
-            if condition() || elapsedTime >= timeout {
-                timer.invalidate()
-                expectation.fulfill()
-            }
-        }
-        
-        wait(for: [expectation], timeout: timeout + pollInterval)
-    }
-    
     // Test 1: Ensure the store initializes with the correct initial state.
     func testInitialState() {
         XCTAssertEqual(store.state.count, 0)
