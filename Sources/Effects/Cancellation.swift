@@ -17,7 +17,7 @@ extension Effect {
         case let .run(priority, operation):
             return Self(
                 operation: .run(priority) { send in
-                    withTaskCancellation(id: id, cancelInFlight: cancelInFlight) {
+                    await withTaskCancellation(id: id, cancelInFlight: cancelInFlight) {
                         await operation(send)
                     }
                 }
@@ -38,9 +38,9 @@ extension Effect {
     ///   - operation: An asynchronous operation to execute within the task.
     public func withTaskCancellation(id: some Hashable & Sendable,
                                      cancelInFlight: Bool = false,
-                                     operation: @escaping @Sendable () async throws -> Void) {
+                                     operation: @escaping @Sendable () async throws -> Void) async {
         if cancelInFlight {
-            _cancellationCollection.cancel(withKey: id)
+            await _cancellationCollection.cancel(withKey: id)
         }
         
         let task = Task {
@@ -50,7 +50,7 @@ extension Effect {
             }
             try await operation()
         }
-        _cancellationCollection.add(task: task, withKey: id)
+        await _cancellationCollection.add(task: task, withKey: id)
     }
     
     /// Cancels an effect with the specified identifier.
@@ -60,7 +60,8 @@ extension Effect {
     /// - Parameter id: A unique identifier for the effect to cancel.
     /// - Returns: An effect that performs no additional operations.
     public static func cancel(id: some Hashable & Sendable) -> Self {
-        _cancellationCollection.cancel(withKey: id)
-        return .none
+        return .run { _ in
+            await _cancellationCollection.cancel(withKey: id)
+        }
     }
 }

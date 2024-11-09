@@ -1,5 +1,5 @@
 @_spi(Internals)
-public class CancellableCollection {
+public actor CancellableCollection {
     // Dictionary to store tasks with their associated keys for easy cancellation and tracking.
     private var tasks: [AnyHashable: Task<Void, any Error>] = [:]
 
