@@ -44,7 +44,7 @@ extension Store where State: Storable {
     /// - Parameter action: The action to send to the reducer for processing.
     @MainActor
     public func send(_ action: Action) {
-        logger.debug("Dispatching action: \(type(of: reducer)).\(action)")
+        logger.action("\(type(of: reducer)).\(action)")
         
         dispatch(state, action)
         objectWillChange.send()

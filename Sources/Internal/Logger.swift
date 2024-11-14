@@ -3,6 +3,9 @@ import os
 final public class Logger {
     public static let shared = Logger()
     public static var logLevel: OSLogType = .debug
+    public static var formatStyle: ActionFormatter.FormatStyle = .short
+    
+    private let formatter = ActionFormatter()
     
     private var logger: os.Logger {
         os.Logger(subsystem: "redux", category: "store-events")
@@ -16,6 +19,10 @@ final public class Logger {
         }
         
         logger.log(level: type, "\(message)")
+    }
+    
+    func action(_ action: String) {
+        log(formatter.format(action: action, style: Self.formatStyle), type: .debug)
     }
     
     func debug(_ message: String) {
