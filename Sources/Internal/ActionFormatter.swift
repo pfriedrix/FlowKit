@@ -9,12 +9,21 @@ public struct ActionFormatter {
         case .full:
             return "Dispatching action: \(action)"
         case .short:
-            let firstLine = action.prefix(20)
-            return "Dispatching action: \(firstLine)..."
+            let abbreviation = action.split(separator: "(").first ?? Substring(action)
+            let prefix = "Dispatching action: \(abbreviation)"
+
+            let maxAdditionalLength = 32
+            let remainingContent = action.dropFirst(abbreviation.count).prefix(maxAdditionalLength)
+            
+            let result = "\(prefix)\(remainingContent)"
+            
+            if action.count > abbreviation.count + maxAdditionalLength {
+                return result + "..."
+            }
+            return result
         case .abbreviated:
-            let words = action.split(separator: "(")
-            let abbreviated = words.map { String($0.prefix(1)) }.joined()
-            return "Dispatching action: \(abbreviated)"
+            let abbreviation = action.split(separator: "(").first ?? Substring(action)
+            return "Dispatching action: \(abbreviation)"
         }
     }
     
