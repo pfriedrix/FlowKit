@@ -7,6 +7,7 @@ final class StoreTests: XCTestCase {
     
     override func setUp() {
         super.setUp()
+        Logger.logLevel = .info
         let reducer = TestReducer()
         store = Store(initial: TestReducer.State(), reducer: reducer)
     }
@@ -283,16 +284,118 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(store.state.anotherStateProperty, 20)
     }
 
+    @MainActor
+    func testHighFrequencyActionDispatch() throws {
+        // Dispatch a single action repeatedly at high frequency
+        let repeatCount = 10_000
+        for _ in 0..<repeatCount {
+            store.send(.increment)
+        }
+
+        // Wait for all actions to be processed
+        waitForStateChange(timeout: 5.0) {
+            self.store.state.count == repeatCount
+        }
+
+        // Validate that the state reflects all increments
+        XCTAssertEqual(store.state.count, repeatCount, "The count should equal the number of repeated actions.")
+    }
+    
+    @MainActor
+    func testConcurrentHighFrequencyActionDispatch() async throws {
+        // Define a high frequency of concurrent action dispatches
+        let concurrentTasks = 100
+        let incrementPerTask = 1_000
+
+        await withTaskGroup(of: Void.self) { group in
+            for _ in 0..<concurrentTasks {
+                group.addTask {
+                    for _ in 0..<incrementPerTask {
+                        await self.store.send(.increment)
+                    }
+                }
+            }
+        }
+
+        // Calculate the expected count
+        let expectedCount = concurrentTasks * incrementPerTask
+
+        // Wait for the state to reflect all increments
+        waitForStateChange(timeout: 10.0) {
+            self.store.state.count == expectedCount
+        }
+
+        // Validate that the state reflects the total number of actions
+        XCTAssertEqual(store.state.count, expectedCount, "The count should equal the total number of increments across all tasks.")
+    }
+    
+    @MainActor
+    func testMixedHighFrequencyActions() throws {
+        // Dispatch a mix of actions repeatedly at high frequency
+        let repeatCount = 5_000
+        for i in 0..<repeatCount {
+            if i % 2 == 0 {
+                store.send(.increment)
+            } else {
+                store.send(.setMessage("Message \(i)"))
+            }
+        }
+
+        // Wait for all actions to be processed
+        waitForStateChange(timeout: 10.0) {
+            self.store.state.count == repeatCount / 2 && self.store.state.message == "Message \(repeatCount - 1)"
+        }
+
+        // Validate the final state
+        XCTAssertEqual(store.state.count, repeatCount / 2, "The count should reflect half the total actions (increments).")
+        XCTAssertEqual(store.state.message, "Message \(repeatCount - 1)", "The message should reflect the last setMessage action.")
+    }
+    
+    @MainActor
+    func testHighFrequencyActionsWithInterruptions() async throws {
+        let totalPrimaryActions = 10_000
+        let interruptionInterval = 100  // Every 100 primary actions, interrupt with a secondary action
+
+        // Create a Task to dispatch primary actions frequently
+        let primaryActionTask = Task {
+            for i in 1...totalPrimaryActions {
+                store.send(.increment)
+                
+                // Introduce a small delay of 0.001 seconds
+                try await Task.sleep(nanoseconds: 1_000)  // 1 millisecond
+
+                // Occasionally interrupt with a secondary action
+                if i % interruptionInterval == 0 {
+                    store.send(.num)
+                }
+            }
+        }
+
+        // Wait for all actions to complete
+        try await primaryActionTask.value
+
+        // Validate the final state
+        waitForStateChange(timeout: 10.0) {
+            self.store.state.count == totalPrimaryActions &&
+            self.store.state.num == 100
+        }
+
+        XCTAssertEqual(store.state.count, totalPrimaryActions, "The count should match the total number of primary actions.")
+        XCTAssertEqual(store.state.num, 100, "The num should match total number of interruptions.")
+    }
+
 }
 
 final class TestReducer: Reducer {
     struct State {
         var count: Int = 0
+        var num = 0
         var message: String = ""
     }
     
     enum Action {
         case increment
+        case num
         case setMessage(String)
         case incrementAndSetMessage(String)
     }
@@ -301,6 +404,9 @@ final class TestReducer: Reducer {
         switch action {
         case .increment:
             state.count += 1
+            return .none
+        case .num:
+            state.num += 1
             return .none
         case .setMessage(let newMessage):
             state.message = newMessage

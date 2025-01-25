@@ -19,10 +19,10 @@ extension Store where State: Storable {
         self.init(initial: restored ?? state , reducer: reducer)
         
         if restored == nil {
-            logger.info("State restored from storage: \(state)")
+            logger.info("\(name): state restored from storage")
             state.save()
         } else {
-            logger.info("State default used: \(state)")
+            logger.info("\(name): state default")
         }
     }
     

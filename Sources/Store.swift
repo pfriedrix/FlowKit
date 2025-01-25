@@ -29,6 +29,11 @@ final public class Store<R: Reducer>: ObservableObject {
     /// Logger instance for tracking state changes and actions.
     let logger = Logger.shared
     
+    /// The name of the store, based on the reducer type.
+    var name: String {
+        String(describing: type(of: reducer))
+    }
+    
     /// Initializes the store with an initial state and a reducer.
     ///
     /// - Parameters:
@@ -37,7 +42,7 @@ final public class Store<R: Reducer>: ObservableObject {
     public required init(initial: State, reducer: R) {
         self.state = initial
         self.reducer = reducer
-        logger.info("Store initialized with state: \(state)")
+        logger.info("\(name): store initialized")
     }
     
     /// Sends an action to the store, triggering a state update.
@@ -84,7 +89,7 @@ final public class Store<R: Reducer>: ObservableObject {
         var currentState = state
         let effect = reducer.reduce(into: &currentState, action: action)
         
-        logger.info("New state after action \(action): \(currentState)")
+        logger.info("\(name): resolve `\(action)`: \(currentState)")
         
         self.state = currentState
         

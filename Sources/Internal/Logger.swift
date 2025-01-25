@@ -8,7 +8,7 @@ final public class Logger {
     private let formatter = ActionFormatter()
     
     private var logger: os.Logger {
-        os.Logger(subsystem: "redux", category: "store-events")
+        os.Logger(subsystem: "flow-kit", category: "store-events")
     }
     
     private init() { }

@@ -32,7 +32,7 @@ extension Persistable {
             let data = try encoder.encode(self)
             UserDefaults.standard.set(data, forKey: Self.key)
         } catch {
-            Logger.shared.error("Failed to save state: \(error)")
+            Logger.shared.error("\(Self.key): failed to save state: \(error)")
         }
     }
     
@@ -51,7 +51,7 @@ extension Persistable {
             let state = try decoder.decode(Self.self, from: data)
             return state
         } catch {
-            Logger.shared.error("Failed to load state: \(error)")
+            Logger.shared.error("\(Self.key): failed to load state: \(error)")
             return nil
         }
     }
