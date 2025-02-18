@@ -39,7 +39,9 @@ final class EnvironmentStoreTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        Logger.logLevel = .info
+        Task { @MainActor in
+            Logger.logLevel = .info
+        }
         store = Store(initial: .init(), reducer: .init())
     }
 

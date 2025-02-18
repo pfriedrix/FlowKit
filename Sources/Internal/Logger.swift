@@ -1,28 +1,34 @@
 import os
 
-final public class Logger {
+final public class Logger: @unchecked Sendable {
     public static let shared = Logger()
+    @MainActor
     public static var logLevel: OSLogType = .debug
+    @MainActor
     public static var formatStyle: ActionFormatter.FormatStyle = .short
     
     private let formatter = ActionFormatter()
     
-    private var logger: os.Logger {
-        os.Logger(subsystem: "flow-kit", category: "store-events")
+    private let logger: os.Logger
+    
+    private init() {
+        logger = os.Logger(subsystem: "flow-kit", category: "store-events")
     }
     
-    private init() { }
-    
     private func log(_ message: String, type: OSLogType = .default) {
-        guard type.rawValue >= Self.logLevel.rawValue else {
-            return
+        Task {
+            guard await type.rawValue >= Self.logLevel.rawValue else {
+                return
+            }
+            
+            logger.log(level: type, "\(message)")
         }
-        
-        logger.log(level: type, "\(message)")
     }
     
     func action(_ action: String) {
-        log(formatter.format(action: action, style: Self.formatStyle), type: .debug)
+        Task {
+            await log(formatter.format(action: action, style: Self.formatStyle), type: .debug)
+        }
     }
     
     func debug(_ message: String) {

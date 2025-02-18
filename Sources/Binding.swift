@@ -8,6 +8,7 @@ extension Store {
     ///   - action: A closure that takes the new value of the property and returns an `Action`
     ///             to be dispatched, updating the state accordingly.
     /// - Returns: A `Binding` that allows SwiftUI views to read and write to the value at the specified key path.
+    @MainActor
     public func binding<Value>(for keyPath: KeyPath<State, Value>, set action: @escaping (Value) -> Action) -> Binding<Value> {
         Binding(
             get: { [weak self] in
@@ -28,6 +29,7 @@ extension Store {
     ///   - keyPath: A key path to the specific property in the store's state that you want to bind to.
     ///   - action: An `Action` that will be dispatched every time the value changes.
     /// - Returns: A `Binding` that allows SwiftUI views to read and write to the value at the specified key path.
+    @MainActor
     public func binding<Value>(for keyPath: KeyPath<State, Value>, set action: Action) -> Binding<Value> {
         Binding(
             get: { [weak self] in
@@ -56,6 +58,7 @@ extension Store where State: Storable {
     /// While the functionality remains identical, having this version under the `Codable`
     /// constraint allows for possible extensions or adjustments when dealing with
     /// serializable states, such as when you might need to encode, decode, or persist the state.
+    @MainActor
     public func binding<Value>(for keyPath: KeyPath<State, Value>, set action: @escaping (Value) -> Action) -> Binding<Value> {
         Binding(
             get: { [weak self] in
@@ -76,6 +79,7 @@ extension Store where State: Storable {
     ///   - keyPath: A key path to the specific property in the store's state that you want to bind to.
     ///   - action: An `Action` that will be dispatched every time the value changes.
     /// - Returns: A `Binding` that allows SwiftUI views to read and write to the value at the specified key path.
+    @MainActor
     public func binding<Value>(for keyPath: KeyPath<State, Value>, set action: Action) -> Binding<Value> {
         Binding(
             get: { [weak self] in

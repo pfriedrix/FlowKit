@@ -10,6 +10,7 @@ import SwiftUI
 ///   - R: The type of the `Reducer` that defines how actions are handled and how the state evolves.
 ///   - S: The type of the `Store` that holds the application state and interacts with the reducer.
 @propertyWrapper
+@MainActor
 public struct EnvironmentStore<R: Reducer, S: Store<R>>: DynamicProperty {
     
     /// The `EnvironmentValues` instance to access values from the environment.

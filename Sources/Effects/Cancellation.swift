@@ -17,7 +17,7 @@ extension Effect {
         case let .run(priority, operation):
             return Self(
                 operation: .run(priority) { send in
-                    await withTaskCancellation(id: id, cancelInFlight: cancelInFlight) {
+                    await Self.withTaskCancellation(id: id, cancelInFlight: cancelInFlight) {
                         await operation(send)
                     }
                 }
@@ -36,7 +36,7 @@ extension Effect {
     ///   - cancelInFlight: A Boolean value that determines whether to cancel an
     ///     existing task with the same `id` before starting a new one.
     ///   - operation: An asynchronous operation to execute within the task.
-    public func withTaskCancellation(id: some Hashable & Sendable,
+    public static func withTaskCancellation(id: some Hashable & Sendable,
                                      cancelInFlight: Bool = false,
                                      operation: @escaping @Sendable () async throws -> Void) async {
         if cancelInFlight {

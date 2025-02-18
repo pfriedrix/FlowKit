@@ -117,3 +117,5 @@ final public class Store<R: Reducer>: ObservableObject {
         }
     }
 }
+
+extension Store: @unchecked Sendable { }

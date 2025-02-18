@@ -28,7 +28,7 @@ public struct ActionFormatter {
     }
     
     /// Represents different styles for formatting.
-    public enum FormatStyle {
+    public enum FormatStyle: Sendable {
         case full
         case short
         case abbreviated

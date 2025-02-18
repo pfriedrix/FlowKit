@@ -6,7 +6,7 @@
 ///
 /// - Parameters:
 ///   - Action: The type of action the effect can dispatch.
-public struct Effect<Action> {
+public struct Effect<Action: Sendable> {
     /// An enumeration describing the types of operations an `Effect` can perform.
     ///
     /// - `none`: Represents the absence of an effect.
@@ -86,10 +86,10 @@ extension Effect.Operation: Equatable {
 ///
 /// - Parameters:
 ///   - Action: The type of action to send.
-@MainActor
+
 public struct Send<Action>: Sendable {
     /// A closure that sends the specified action.
-    let send: @MainActor @Sendable (Action) -> Void
+    let send: @Sendable @MainActor (Action) -> Void
     
     /// Creates a new `Send` instance with a given action dispatcher.
     ///
@@ -101,6 +101,7 @@ public struct Send<Action>: Sendable {
     /// Dispatches an action, unless the task is canceled.
     ///
     /// - Parameter action: The action to be sent.
+    @MainActor
     public func callAsFunction(_ action: Action) {
         guard !Task.isCancelled else { return }
         self.send(action)

@@ -13,10 +13,10 @@
 public protocol Reducer<State, Action> {
     
     /// The type of state being stored.
-    associatedtype State
+    associatedtype State: Sendable
     
     /// The type of action that may trigger state transitions.
-    associatedtype Action
+    associatedtype Action: Sendable
     
     /// Reduces the current state by applying the given action.
     ///

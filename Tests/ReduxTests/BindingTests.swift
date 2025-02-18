@@ -67,6 +67,7 @@ final class BindingTests: XCTestCase {
     }
     
     // Test the `binding(for:set:)` method to ensure it correctly reads the initial state.
+    @MainActor
     func testBindingGetsInitialState() {
         let store = createStore()
         
@@ -79,6 +80,7 @@ final class BindingTests: XCTestCase {
     }
     
     // Test the `binding(for:set:)` method to ensure it correctly sendes an action and updates the state.
+    @MainActor
     func testBindingUpdatesState() async throws {
         let store = createStore()
         
@@ -97,6 +99,7 @@ final class BindingTests: XCTestCase {
     }
     
     // Test predefined action send using the binding.
+    @MainActor
     func testPredefinedActionDispatch() async throws {
         let store = createStore()
         
@@ -113,6 +116,7 @@ final class BindingTests: XCTestCase {
     }
     
     // Test that multiple bindings update independently.
+    @MainActor
     func testMultipleBindingsUpdateIndependently() async throws {
         let store = createStore()
         
@@ -138,6 +142,7 @@ final class BindingTests: XCTestCase {
     }
     
     // Test that bindings are isolated: changes in one binding do not affect another binding.
+    @MainActor
     func testBindingsAreIsolated() async throws {
         let store = createStore()
         
@@ -174,6 +179,7 @@ final class BindingTests: XCTestCase {
     // MARK: - Test Complex Cases with Async Waits
     
     // Test binding with nested state and async send
+    @MainActor
     func testBindingWithNestedStateAsync() async throws {
         let store = createStore()
         
@@ -193,6 +199,7 @@ final class BindingTests: XCTestCase {
     }
     
     // Test binding updates with async send
+    @MainActor
     func testBindingUpdatesStateAsync() async throws {
         let store = createStore()
         
@@ -211,6 +218,7 @@ final class BindingTests: XCTestCase {
     }
     
     // Test predefined action send with async state update
+    @MainActor
     func testPredefinedActionDispatchAsync() async throws {
         let store = createStore()
         
@@ -227,6 +235,7 @@ final class BindingTests: XCTestCase {
     }
     
     // Test multiple bindings with async updates
+    @MainActor
     func testMultipleBindingsUpdateIndependentlyAsync() async throws {
         let store = createStore()
         
@@ -252,6 +261,7 @@ final class BindingTests: XCTestCase {
     }
     
     // Test that bindings are isolated with async state updates
+    @MainActor
     func testBindingsAreIsolatedAsync() async throws {
         let store = createStore()
         

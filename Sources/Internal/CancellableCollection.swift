@@ -45,5 +45,4 @@ public actor CancellableCollection {
     }
 }
 
-@_spi(Internals)
-public let _cancellationCollection = CancellableCollection()
+let _cancellationCollection = CancellableCollection()
