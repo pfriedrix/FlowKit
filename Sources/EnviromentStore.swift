@@ -9,6 +9,7 @@ import SwiftUI
 /// - Parameters:
 ///   - R: The type of the `Reducer` that defines how actions are handled and how the state evolves.
 ///   - S: The type of the `Store` that holds the application state and interacts with the reducer.
+@available(*, deprecated, message: "EnvironmentStore has been deprecated and will be removed in a future release. Please migrate to `Shared` for continued support.")
 @propertyWrapper
 @MainActor
 public struct EnvironmentStore<R: Reducer, S: Store<R>>: DynamicProperty {
