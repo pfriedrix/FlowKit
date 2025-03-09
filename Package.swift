@@ -1,5 +1,6 @@
 // swift-tools-version: 5.10
 
+import CompilerPluginSupport
 import PackageDescription
 
 let package = Package(
@@ -14,6 +15,13 @@ let package = Package(
         .library(
             name: "FlowKit",
             targets: ["FlowKit"]),
+        .library(
+              name: "Macros",
+              targets: ["Macros"]
+            ),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/swiftlang/swift-syntax", exact: "600.0.1")
     ],
     targets: [
         .target(
@@ -23,6 +31,19 @@ let package = Package(
             dependencies: [
                 "FlowKit"
             ]
-        )
-    ]
+        ),
+        .target(
+            name: "Macros",
+            dependencies: [
+                "MacrosPlugin"
+            ]
+        ),
+        .macro(
+            name: "MacrosPlugin",
+            dependencies: [
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+            ]
+        ),
+    ],
 )
