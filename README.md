@@ -46,8 +46,7 @@ FlowKit follows a unidirectional data flow to make state changes predictable and
 - **Action**: Describes events that occur, like user interactions or external data updates.
 - **Reducer**: Defines how the state transitions in response to actions.
 - **Effect**: Manages side effects, such as network requests and asynchronous operations.
-- **Persistable**: Extends `Storable` by automatically handling state persistence and restoration.
-
+  
 ## Usage
 
 ### Store
