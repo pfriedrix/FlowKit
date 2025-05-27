@@ -185,4 +185,215 @@ final class StorableBindingTests: XCTestCase {
         let savedState = AppReducer.State.load()
         XCTAssertEqual(savedState?.nestedState.someDeepProperty, "Updated Deep Value", "The deeply nested state should be saved.")
     }
+    
+    // MARK: - Custom Getter Binding Tests for Storable State
+    
+    /// Test custom getter binding saves state correctly
+    @MainActor
+    func testCustomGetterBindingSavesState() async throws {
+        let store = createStore()
+        let multiplier = 2
+        
+        // Create a custom getter binding that transforms the value using state-aware version
+        let binding = store.binding(
+            get: { state in state.anotherStateProperty * multiplier },
+            set: { newValue in
+                AppReducer.Action.updateAnotherState(newValue / multiplier)
+            }
+        )
+        
+        // Update through the binding
+        binding.wrappedValue = 100
+        
+        // Wait for the state to be updated and saved
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Verify the state was saved correctly
+        let savedState = AppReducer.State.load()
+        XCTAssertEqual(savedState?.anotherStateProperty, 50, "The state should be saved with the correct value (100 / 2 = 50).")
+        
+        // Verify the binding still works correctly
+        XCTAssertEqual(binding.wrappedValue, 100, "The binding should return the transformed value (50 * 2 = 100).")
+    }
+    
+    /// Test state-aware custom getter binding with complex conditions
+    @MainActor
+    func testStateAwareCustomGetterBindingSavesState() async throws {
+        let store = createStore()
+        
+        // Create a binding that combines state properties
+        let binding = store.binding(
+            get: { state in
+                state.booleanFlag ? state.someStateProperty : "Default"
+            },
+            set: { newValue in
+                AppReducer.Action.updateSomeState(newValue)
+            }
+        )
+        
+        // Initially returns "Default" because booleanFlag is false
+        XCTAssertEqual(binding.wrappedValue, "Default", "The binding should return default when flag is false.")
+        
+        // Update the boolean flag
+        store.send(.updateBooleanFlag(true))
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Now returns the actual state property
+        XCTAssertEqual(binding.wrappedValue, "Initial State", "The binding should return state property when flag is true.")
+        
+        // Update through the binding
+        binding.wrappedValue = "New Value"
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Verify the state was saved
+        let savedState = AppReducer.State.load()
+        XCTAssertEqual(savedState?.someStateProperty, "New Value", "The state should be saved with the new value.")
+        XCTAssertEqual(savedState?.booleanFlag, true, "The boolean flag should remain true.")
+    }
+    
+    /// Test multiple custom getter bindings working together with persistence
+    @MainActor
+    func testMultipleCustomGetterBindingsPersistence() async throws {
+        let store = createStore()
+        
+        // First binding: transforms string values
+        let stringBinding = store.binding(
+            get: { state in state.someStateProperty.lowercased() },
+            set: { newValue in AppReducer.Action.updateSomeState(newValue.uppercased()) }
+        )
+        
+        // Second binding: transforms numeric values
+        let intBinding = store.binding(
+            get: { state in state.anotherStateProperty + 1000 },
+            set: { newValue in AppReducer.Action.updateAnotherState(newValue - 1000) }
+        )
+        
+        // Update through both bindings
+        stringBinding.wrappedValue = "hello world"
+        intBinding.wrappedValue = 1042
+        
+        // Wait for updates to be saved
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Verify both values were saved correctly
+        let savedState = AppReducer.State.load()
+        XCTAssertEqual(savedState?.someStateProperty, "HELLO WORLD", "String should be saved as uppercase.")
+        XCTAssertEqual(savedState?.anotherStateProperty, 42, "Integer should be saved with offset removed.")
+        
+        // Verify bindings still work correctly with saved state
+        XCTAssertEqual(stringBinding.wrappedValue, "hello world", "String binding should return lowercase.")
+        XCTAssertEqual(intBinding.wrappedValue, 1042, "Integer binding should return with offset added.")
+    }
+    
+    /// Test simple custom getter binding without state access
+    @MainActor
+    func testSimpleCustomGetterBinding() async throws {
+        let store = createStore()
+        
+        struct SomeValue {
+            var value = "Fixed Value"
+        }
+        
+        let value = SomeValue()
+        
+        // Create a binding with a custom getter that returns a constant
+        let binding = store.binding(
+            get: { value.value },
+            set: { newValue in
+                AppReducer.Action.updateSomeState(newValue)
+            }
+        )
+        
+        // Test that the binding returns the custom value
+        XCTAssertEqual(binding.wrappedValue, "Fixed Value", "The binding should return the custom getter value.")
+        
+        // Update through the binding
+        binding.wrappedValue = "New State Value"
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Verify the state was saved
+        let savedState = AppReducer.State.load()
+        XCTAssertEqual(savedState?.someStateProperty, "New State Value", "The state should be saved with the new value.")
+        
+        // The getter still returns the fixed value
+        XCTAssertEqual(binding.wrappedValue, "Fixed Value", "The binding should still return the fixed value.")
+    }
+    
+    /// Test custom getter with computed constants
+    @MainActor
+    func testCustomGetterWithComputedConstants() async throws {
+        let store = createStore()
+        let baseValue = 100
+        let multiplier = 3
+        
+        // Create a binding that computes from constants
+        let binding = store.binding(
+            get: { baseValue * multiplier },
+            set: { newValue in
+                AppReducer.Action.updateAnotherState(newValue)
+            }
+        )
+        
+        // Test the computed value
+        XCTAssertEqual(binding.wrappedValue, 300, "The binding should return the computed constant (100 * 3).")
+        
+        // Update through the binding
+        binding.wrappedValue = 150
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Verify the state was saved
+        let savedState = AppReducer.State.load()
+        XCTAssertEqual(savedState?.anotherStateProperty, 150, "The state should be saved with the new value.")
+        
+        // The getter still returns the computed constant
+        XCTAssertEqual(binding.wrappedValue, 300, "The binding should still return the computed constant.")
+    }
+    
+    /// Test mixing simple and state-aware custom getter bindings
+    @MainActor
+    func testMixedCustomGetterBindings() async throws {
+        let store = createStore()
+        
+        final class TestClass: Sendable {
+            let value: String = "Constant"
+        }
+        
+        let testClass = TestClass()
+        
+        // Simple custom getter (no state access)
+        let simpleBinding = store.binding(
+            get: { testClass.value },
+            set: { _ in AppReducer.Action.updateBooleanFlag(true) }
+        )
+        
+        // State-aware custom getter
+        let stateBinding = store.binding(
+            get: { state in state.booleanFlag ? "Enabled" : "Disabled" },
+            set: { newValue in
+                AppReducer.Action.updateSomeState(newValue)
+            }
+        )
+        
+        // Initially, booleanFlag is false
+        XCTAssertEqual(simpleBinding.wrappedValue, "Constant", "Simple binding returns constant.")
+        XCTAssertEqual(stateBinding.wrappedValue, "Disabled", "State binding shows disabled.")
+        
+        // Update through simple binding (sets booleanFlag to true)
+        simpleBinding.wrappedValue = "Ignored"
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Verify state was updated and saved
+        let savedState1 = AppReducer.State.load()
+        XCTAssertEqual(savedState1?.booleanFlag, true, "Boolean flag should be true.")
+        XCTAssertEqual(stateBinding.wrappedValue, "Enabled", "State binding should now show enabled.")
+        
+        // Update through state binding
+        stateBinding.wrappedValue = "Updated Text"
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Verify both states were saved
+        let savedState2 = AppReducer.State.load()
+        XCTAssertEqual(savedState2?.someStateProperty, "Updated Text", "Text should be updated.")
+        XCTAssertEqual(savedState2?.booleanFlag, true, "Boolean flag should remain true.")
+    }
 }
