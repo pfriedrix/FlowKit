@@ -8,7 +8,7 @@ struct MockReducer: Reducer {
     }
 
     enum Action {
-        case increment, decrement
+        case increment, decrement, reset
     }
 
     func reduce(into state: inout State, action: Action) -> Effect<Action> {
@@ -17,6 +17,8 @@ struct MockReducer: Reducer {
             state.value += 1
         case .decrement:
             state.value -= 1
+        case .reset:
+            state.value = 0
         }
         return .none
     }

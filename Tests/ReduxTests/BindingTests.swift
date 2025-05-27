@@ -45,7 +45,7 @@ final class BindingTests: XCTestCase {
                 return .none
                 
             case .resetState:
-                state = State() // Скидання до початкового стану
+                state = State()
                 return .none
                 
             case .complexMutation(let someString, let someInt):
@@ -293,5 +293,209 @@ final class BindingTests: XCTestCase {
         // Assert the integer state was updated, string remains the same
         XCTAssertEqual(store.state.someStateProperty, "Updated String", "The string state should remain the same.")
         XCTAssertEqual(store.state.anotherStateProperty, 99, "The integer state should be updated.")
+    }
+    
+    // MARK: - Custom Getter Binding Tests
+    
+    // Test simple custom getter binding without state access
+    @MainActor
+    func testCustomGetterBinding() async throws {
+        let store = createStore()
+        
+        // Create a binding with a custom getter that returns a constant
+        let binding = store.binding(
+            get: { "Custom Value" },
+            set: { newValue in
+                AppReducer.Action.updateSomeState(newValue)
+            }
+        )
+        
+        // Test that the binding reads the custom getter value
+        XCTAssertEqual(binding.wrappedValue, "Custom Value", "The binding should return the value from the custom getter.")
+        
+        // Modify the binding's value
+        binding.wrappedValue = "Updated Value"
+        
+        // Wait for the state to be updated
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Assert that the state was updated through the action
+        XCTAssertEqual(store.state.someStateProperty, "Updated Value", "The state should be updated through the action.")
+        
+        // The getter still returns the constant value
+        XCTAssertEqual(binding.wrappedValue, "Custom Value", "The binding should still return the custom getter value.")
+    }
+    
+    // Test custom getter binding with transformation
+    @MainActor
+    func testCustomGetterBindingWithTransformation() async throws {
+        let store = createStore()
+        
+        // First set some initial state
+        store.send(.updateAnotherState(42))
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Create a binding that transforms a value using the state-aware version
+        let binding = store.binding(
+            get: { state in
+                // Transform the value using the provided state parameter
+                "Value: \(state.anotherStateProperty * 2)"
+            },
+            set: { newValue in
+                // Extract number from string and update
+                if let range = newValue.range(of: "Value: "),
+                   let number = Int(newValue[range.upperBound...]) {
+                    return AppReducer.Action.updateAnotherState(number / 2)
+                }
+                return AppReducer.Action.ignoreUpdate
+            }
+        )
+        
+        // Test initial transformed value
+        XCTAssertEqual(binding.wrappedValue, "Value: 84", "The binding should return the transformed value (42 * 2).")
+        
+        // Update through binding
+        binding.wrappedValue = "Value: 100"
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Verify the state was updated with inverse transformation
+        XCTAssertEqual(store.state.anotherStateProperty, 50, "The state should be updated (100 / 2 = 50).")
+        XCTAssertEqual(binding.wrappedValue, "Value: 100", "The binding should reflect the new value.")
+    }
+    
+    // Test state-aware custom getter binding
+    @MainActor
+    func testStateAwareCustomGetterBinding() async throws {
+        let store = createStore()
+        
+        // Create a binding that combines multiple state properties
+        let binding = store.binding(
+            get: { state in
+                "\(state.someStateProperty) - \(state.anotherStateProperty)"
+            },
+            set: { newValue in
+                AppReducer.Action.updateSomeState(newValue)
+            }
+        )
+        
+        // Test initial combined value
+        XCTAssertEqual(binding.wrappedValue, "Initial State - 0", "The binding should combine state properties correctly.")
+        
+        // Update the integer state directly
+        store.send(.updateAnotherState(42))
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Test that the binding reflects the updated state
+        XCTAssertEqual(binding.wrappedValue, "Initial State - 42", "The binding should reflect state changes.")
+        
+        // Modify through the binding
+        binding.wrappedValue = "New Value"
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Assert that the state was updated
+        XCTAssertEqual(store.state.someStateProperty, "New Value", "The state should be updated through the binding.")
+        XCTAssertEqual(binding.wrappedValue, "New Value - 42", "The binding should show the updated combined value.")
+    }
+    
+    // Test custom getter binding with conditions
+    @MainActor
+    func testCustomGetterBindingWithConditions() async throws {
+        let store = createStore()
+        
+        // Create a binding that applies custom conditions
+        let binding = store.binding(
+            get: { state in
+                state.booleanFlag && state.anotherStateProperty > 10
+            },
+            set: { newValue in
+                AppReducer.Action.updateBooleanFlag(newValue)
+            }
+        )
+        
+        // Initially false (booleanFlag is false, anotherStateProperty is 0)
+        XCTAssertEqual(binding.wrappedValue, false, "The binding should return false when conditions are not met.")
+        
+        // Update boolean flag to true
+        store.send(.updateBooleanFlag(true))
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Still false because anotherStateProperty is 0
+        XCTAssertEqual(binding.wrappedValue, false, "The binding should still return false when only one condition is met.")
+        
+        // Update anotherStateProperty to be > 10
+        store.send(.updateAnotherState(15))
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Now true because both conditions are met
+        XCTAssertEqual(binding.wrappedValue, true, "The binding should return true when all conditions are met.")
+        
+        // Set to false through binding
+        binding.wrappedValue = false
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Verify booleanFlag was updated
+        XCTAssertEqual(store.state.booleanFlag, false, "The boolean flag should be updated through the binding.")
+        XCTAssertEqual(binding.wrappedValue, false, "The binding should return false after update.")
+    }
+    
+    // Test custom getter binding with computed values
+    @MainActor
+    func testCustomGetterBindingWithComputedValues() async throws {
+        let store = createStore()
+        
+        // Create a binding that computes a value based on state
+        let binding = store.binding(
+            get: { state in
+                state.anotherStateProperty * 2
+            },
+            set: { newValue in
+                AppReducer.Action.updateAnotherState(newValue / 2)
+            }
+        )
+        
+        // Test initial computed value
+        XCTAssertEqual(binding.wrappedValue, 0, "The binding should return the computed value (0 * 2 = 0).")
+        
+        // Update the state directly
+        store.send(.updateAnotherState(10))
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Test computed value
+        XCTAssertEqual(binding.wrappedValue, 20, "The binding should return the computed value (10 * 2 = 20).")
+        
+        // Update through the binding
+        binding.wrappedValue = 50
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Verify the state was updated with the inverse calculation
+        XCTAssertEqual(store.state.anotherStateProperty, 25, "The state should be updated with the inverse calculation (50 / 2 = 25).")
+        XCTAssertEqual(binding.wrappedValue, 50, "The binding should return the new computed value (25 * 2 = 50).")
+    }
+    
+    // Test custom getter binding with nested state access
+    @MainActor
+    func testCustomGetterBindingWithNestedState() async throws {
+        let store = createStore()
+        
+        // Create a binding that accesses nested state with custom logic
+        let binding = store.binding(
+            get: { state in
+                state.nestedState.someDeepProperty.uppercased()
+            },
+            set: { newValue in
+                AppReducer.Action.updateDeepNestedProperty(newValue.lowercased())
+            }
+        )
+        
+        // Test initial value transformation
+        XCTAssertEqual(binding.wrappedValue, "INITIAL DEEP STATE", "The binding should return the uppercased value.")
+        
+        // Update through the binding
+        binding.wrappedValue = "NEW DEEP VALUE"
+        try await Task.sleep(nanoseconds: 100_000_000)
+        
+        // Verify the state was updated with lowercase
+        XCTAssertEqual(store.state.nestedState.someDeepProperty, "new deep value", "The state should be updated with lowercase.")
+        XCTAssertEqual(binding.wrappedValue, "NEW DEEP VALUE", "The binding should return the uppercased value.")
     }
 }
