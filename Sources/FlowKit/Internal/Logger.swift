@@ -1,6 +1,6 @@
 import os
 
-final public class Logger: @unchecked Sendable {
+final public class Logger {
     public static let shared = Logger()
     @MainActor
     public static var logLevel: OSLogType = .debug
@@ -15,35 +15,60 @@ final public class Logger: @unchecked Sendable {
         logger = os.Logger(subsystem: "flow-kit", category: "store-events")
     }
     
-    private func log(_ message: String, type: OSLogType = .default) {
-        Task {
-            guard await type.rawValue >= Self.logLevel.rawValue else {
-                return
-            }
-            
-            logger.log(level: type, "\(message)")
+    @MainActor
+    func action(_ action: @autoclosure () -> String) {
+        let type = OSLogType.debug
+        guard type.rawValue >= Self.logLevel.rawValue else {
+            return
         }
+        
+        let message = formatter.format(action: action(), style: Self.formatStyle)
+        logger.log(level: type, "\(message)")
     }
     
-    func action(_ action: String) {
-        Task {
-            await log(formatter.format(action: action, style: Self.formatStyle), type: .debug)
+    @MainActor
+    func debug(_ message: @autoclosure () -> String) {
+        let type = OSLogType.debug
+        guard type.rawValue >= Self.logLevel.rawValue else {
+            return
         }
+        
+        let msg = message()
+        logger.log(level: type, "\(msg)")
     }
     
-    func debug(_ message: String) {
-        log(message, type: .debug)
+    @MainActor
+    func info(_ message: @autoclosure () -> String) {
+        let type = OSLogType.info
+        guard type.rawValue >= Self.logLevel.rawValue else {
+            return
+        }
+        
+        let msg = message()
+        logger.log(level: type, "\(msg)")
     }
     
-    func info(_ message: String) {
-        log(message, type: .info)
+    @MainActor
+    func error(_ message: @autoclosure () -> String) {
+        let type = OSLogType.error
+        guard type.rawValue >= Self.logLevel.rawValue else {
+            return
+        }
+        
+        let msg = message()
+        logger.log(level: type, "\(msg)")
     }
     
-    func error(_ message: String) {
-        log(message, type: .error)
-    }
-    
-    func fault(_ message: String) {
-        log(message, type: .fault)
+    @MainActor
+    func fault(_ message: @autoclosure () -> String) {
+        let type = OSLogType.fault
+        guard type.rawValue >= Self.logLevel.rawValue else {
+            return
+        }
+        
+        let msg = message()
+        logger.log(level: type, "\(msg)")
     }
 }
+
+extension Logger: @unchecked Sendable { }

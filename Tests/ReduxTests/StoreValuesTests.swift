@@ -28,6 +28,7 @@ struct DummyStoreKey: StoreKey {
 
 /// Extending StoreValues to provide a computed property like in EnvironmentValues
 extension StoreValues {
+    @MainActor
     var dummyStore: Store<DummyReducer> {
         get { self[DummyStoreKey.self] }
         set { self[DummyStoreKey.self] = newValue }

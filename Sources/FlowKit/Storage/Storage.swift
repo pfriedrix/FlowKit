@@ -14,6 +14,7 @@ extension Store where State: Storable {
     /// - Parameters:
     ///   - reducer: The reducer that handles state updates and actions.
     ///   - default: The default state to use if no saved state is found.
+    @MainActor
     public convenience init(reducer: R, default state: State) {
         let restored = Self.restore()
         self.init(initial: restored ?? state , reducer: reducer)
@@ -32,7 +33,7 @@ extension Store where State: Storable {
     /// If no valid state is found, it returns `nil`, allowing the store to use the provided `default`.
     ///
     /// - Returns: The restored state, or `nil` if no valid state is available.
-    private static func restore() -> State? {
+    @MainActor private static func restore() -> State? {
         State.load()
     }
     
@@ -44,7 +45,7 @@ extension Store where State: Storable {
     /// - Parameter action: The action to send to the reducer for processing.
     @MainActor
     public func send(_ action: Action) {
-        logger.action("\(type(of: reducer)).\(action)")
+        logger.action("\(name).\(action)")
         
         dispatch(state, action)
         objectWillChange.send()

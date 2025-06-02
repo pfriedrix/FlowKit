@@ -2,18 +2,8 @@ import XCTest
 @testable import FlowKit
 
 final class ContextIsolationTests: XCTestCase {
-    var store: Store<CancellableReducer>!
-
-    override func setUp() {
-        super.setUp()
-        let reducer = CancellableReducer()
-        store = Store(initial: CancellableReducer.State(), reducer: reducer)
-    }
-
-    override func tearDown() {
-        store = nil
-        super.tearDown()
-    }
+    @MainActor
+    var store: Store<CancellableReducer> = Store(initial: CancellableReducer.State(), reducer: CancellableReducer())
 
     // Test 1: Ensure tasks operate independently when started with different IDs.
     @MainActor

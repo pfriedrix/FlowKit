@@ -77,6 +77,7 @@ final class StorableBindingTests: XCTestCase {
 
     // MARK: - Test Helper Function
     
+    @MainActor
     func createStore() -> Store<AppReducer> {
         return Store(reducer: AppReducer(), default: AppReducer.State())
     }

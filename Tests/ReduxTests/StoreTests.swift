@@ -2,25 +2,18 @@ import XCTest
 @testable import FlowKit
 
 final class StoreTests: XCTestCase {
-    
-    var store: Store<TestReducer>!
+    @MainActor
+    var store: Store<TestReducer> = Store(initial: TestReducer.State(), reducer: TestReducer())
     
     override func setUp() {
         super.setUp()
         Task { @MainActor in
             Logger.logLevel = .info
         }
-        
-        let reducer = TestReducer()
-        store = Store(initial: TestReducer.State(), reducer: reducer)
-    }
-    
-    override func tearDown() {
-        store = nil
-        super.tearDown()
     }
     
     // Test 1: Ensure the store initializes with the correct initial state.
+    @MainActor
     func testInitialState() {
         XCTAssertEqual(store.state.count, 0)
         XCTAssertEqual(store.state.message, "")

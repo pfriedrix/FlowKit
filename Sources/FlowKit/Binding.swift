@@ -14,11 +14,9 @@ extension Store {
     ) -> Binding<Value> {
         Binding(
             get: get,
-            set: { [weak self] newValue in
-                guard let self = self else { return }
-                DispatchQueue.main.async { [weak self] in
-                    self?.send(set(newValue))
-                }
+            set: { [ weak self ] newValue in
+                guard let self else { return }
+                send(set(newValue))
             }
         )
     }
@@ -34,15 +32,13 @@ extension Store {
         set: @escaping (Value) -> Action
     ) -> Binding<Value> {
         Binding(
-            get: { [weak self] in
+            get: { [ weak self ] in
                 guard let self = self else { fatalError("Store is deallocated") }
                 return get(self.state)
             },
-            set: { [weak self] newValue in
-                guard let self = self else { return }
-                DispatchQueue.main.async { [weak self] in
-                    self?.send(set(newValue))
-                }
+            set: { [ weak self ] newValue in
+                guard let self else { return }
+                send(set(newValue))
             }
         )
     }
@@ -60,11 +56,9 @@ extension Store {
                 guard let self = self else { fatalError("Store is deallocated") }
                 return self.state[keyPath: keyPath]
             },
-            set: { [weak self] newValue in
-                guard let self = self else { return }
-                DispatchQueue.main.async { [weak self] in
-                    self?.send(action(newValue))
-                }
+            set: { [ weak self ] newValue in
+                guard let self else { return }
+                send(action(newValue))
             }
         )
     }
@@ -77,15 +71,13 @@ extension Store {
     @MainActor
     public func binding<Value>(for keyPath: KeyPath<State, Value>, set action: Action) -> Binding<Value> {
         Binding(
-            get: { [weak self] in
+            get: { [ weak self ] in
                 guard let self = self else { fatalError("Store is deallocated") }
                 return self.state[keyPath: keyPath]
             },
-            set: { [weak self] _ in
-                guard let self = self else { return }
-                DispatchQueue.main.async { [weak self] in
-                    self?.send(action)
-                }
+            set: { [ weak self ] _ in
+                guard let self else { return }
+                send(action)
             }
         )
     }
@@ -104,11 +96,9 @@ extension Store where State: Storable {
     ) -> Binding<Value> {
         Binding(
             get: get,
-            set: { [weak self] newValue in
-                guard let self = self else { return }
-                DispatchQueue.main.async { [weak self] in
-                    self?.send(set(newValue))
-                }
+            set: { [ weak self ] newValue in
+                guard let self else { return }
+                send(set(newValue))
             }
         )
     }
@@ -124,15 +114,13 @@ extension Store where State: Storable {
         set: @escaping (Value) -> Action
     ) -> Binding<Value> {
         Binding(
-            get: { [weak self] in
+            get: { [ weak self ] in
                 guard let self = self else { fatalError("Store is deallocated") }
                 return get(self.state)
             },
             set: { [weak self] newValue in
-                guard let self = self else { return }
-                DispatchQueue.main.async { [weak self] in
-                    self?.send(set(newValue))
-                }
+                guard let self else { return }
+                send(set(newValue))
             }
         )
     }
@@ -151,15 +139,13 @@ extension Store where State: Storable {
     @MainActor
     public func binding<Value>(for keyPath: KeyPath<State, Value>, set action: @escaping (Value) -> Action) -> Binding<Value> {
         Binding(
-            get: { [weak self] in
+            get: { [ weak self ] in
                 guard let self = self else { fatalError("Store is deallocated") }
                 return self.state[keyPath: keyPath]
             },
-            set: { [weak self] newValue in
-                guard let self = self else { return }
-                DispatchQueue.main.async { [weak self] in
-                    self?.send(action(newValue))
-                }
+            set: { [ weak self ] newValue in
+                guard let self else { return }
+                send(action(newValue))
             }
         )
     }
@@ -172,15 +158,13 @@ extension Store where State: Storable {
     @MainActor
     public func binding<Value>(for keyPath: KeyPath<State, Value>, set action: Action) -> Binding<Value> {
         Binding(
-            get: { [weak self] in
+            get: { [ weak self ] in
                 guard let self = self else { fatalError("Store is deallocated") }
                 return self.state[keyPath: keyPath]
             },
-            set: { [weak self] _ in
-                guard let self = self else { return }
-                DispatchQueue.main.async { [weak self] in
-                    self?.send(action)
-                }
+            set: { [ weak self ] _ in
+                guard let self else { return }
+                send(action)
             }
         )
     }

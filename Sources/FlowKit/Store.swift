@@ -30,15 +30,14 @@ final public class Store<R: Reducer>: ObservableObject {
     let logger = Logger.shared
     
     /// The name of the store, based on the reducer type.
-    var name: String {
-        String(describing: type(of: reducer))
-    }
+    lazy var name: String = String(describing: type(of: reducer))
     
     /// Initializes the store with an initial state and a reducer.
     ///
     /// - Parameters:
     ///   - initial: The initial state of the store.
     ///   - reducer: The reducer that will handle actions and state updates.
+    @MainActor
     public required init(initial: State, reducer: R) {
         self.state = initial
         self.reducer = reducer
@@ -53,7 +52,7 @@ final public class Store<R: Reducer>: ObservableObject {
     /// - Parameter action: The action to send to the reducer for processing.
     @MainActor
     public func send(_ action: Action) {
-        logger.action("\(type(of: reducer)).\(action)")
+        logger.action("\(name).\(action)")
         
         dispatch(state, action)
         objectWillChange.send()

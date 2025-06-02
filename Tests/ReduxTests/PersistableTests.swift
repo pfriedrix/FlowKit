@@ -83,6 +83,7 @@ final class PersistableTests: XCTestCase {
     }
     
     /// Test successful saving to UserDefaults
+    @MainActor
     func testSaveToUserDefaults() {
         let testState = TestState(value: "Hello, World!")
         testState.save()
@@ -92,6 +93,7 @@ final class PersistableTests: XCTestCase {
     }
     
     /// Test successful loading from UserDefaults
+    @MainActor
     func testLoadFromUserDefaults() {
         let testState = TestState(value: "Hello, World!")
         testState.save()
@@ -102,6 +104,7 @@ final class PersistableTests: XCTestCase {
     }
     
     /// Test to verify that load returns nil when there is no data in UserDefaults
+    @MainActor
     func testLoadReturnsNilWhenNoData() {
         // Check that load returns nil if there is no data
         let loadedState = TestState.load()
@@ -109,6 +112,7 @@ final class PersistableTests: XCTestCase {
     }
     
     /// Test handling of decoding error by saving incompatible data format in UserDefaults
+    @MainActor
     func testLoadHandlesDecodingErrorGracefully() {
         // Save data that does not match the expected `TestState` structure
         let invalidData = "Invalid data".data(using: .utf8)
@@ -120,6 +124,7 @@ final class PersistableTests: XCTestCase {
     }
     
     /// Test that Store restores state from UserDefaults during initialization
+    @MainActor
     func testStoreInitializesWithRestoredState() {
         // Save initial state to UserDefaults
         let initialState = TestState(value: "Restored value")
@@ -147,6 +152,7 @@ final class PersistableTests: XCTestCase {
     }
     
     /// Test that Store returns nil for loadState when UserDefaults has incompatible data
+    @MainActor
     func testStoreHandlesDecodingErrorGracefully() {
         // Save incompatible data format to UserDefaults
         let invalidData = "Invalid data".data(using: .utf8)
@@ -158,6 +164,7 @@ final class PersistableTests: XCTestCase {
         XCTAssertEqual(store.state.value, "Default", "Store should fall back to default state when decoding fails.")
     }
     
+    @MainActor
     func testStatesWithSameNameDoNotOverwriteEachOther() {
         let reducerAState = ReducerA.State(value: "Reducer A Value")
         let reducerBState = ReducerB.State(value: "Reducer B Value")

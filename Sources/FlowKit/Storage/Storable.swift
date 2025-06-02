@@ -6,7 +6,7 @@ public protocol Storable {
     ///
     /// This method should handle serializing and storing the current state
     /// in a way that allows it to be restored later.
-    func save()
+    @MainActor func save()
     
     /// Loads the state from persistent storage.
     ///
@@ -14,5 +14,5 @@ public protocol Storable {
     /// storage. If no state is found, or if deserialization fails, it should return `nil`.
     ///
     /// - Returns: The loaded state, or `nil` if no valid state is found.
-    static func load() -> Self?
+    @MainActor static func load() -> Self?
 }

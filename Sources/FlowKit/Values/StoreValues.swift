@@ -16,6 +16,7 @@ public struct StoreValues: Sendable {
     ///
     /// - Parameter key: The type of the key conforming to `StoreKey` used to identify the store value.
     /// - Returns: The store value corresponding to the provided key.
+    @MainActor
     public subscript<Key: StoreKey>(key: Key.Type) -> Key.Value {
         get {
             guard let base = storage[ObjectIdentifier(key)],

@@ -12,11 +12,13 @@ extension StoreValues {
         static let defaultValue = Store(initial: LoggerReducer.State(), reducer: LoggerReducer())
     }
     
+    @MainActor
     var counterStore: Store<CounterReducer> {
         get { self[CounterStoreKey.self] }
         set { self[CounterStoreKey.self] = newValue }
     }
     
+    @MainActor
     var loggerStore: Store<LoggerReducer> {
         get { self[LoggerStoreKey.self] }
         set { self[LoggerStoreKey.self] = newValue }
@@ -32,6 +34,7 @@ struct CounterReducer: Reducer {
     enum Action: Sendable {
         case increment
         case notifyLogger(String)
+        case reset
     }
     
     @MainActor
@@ -42,6 +45,10 @@ struct CounterReducer: Reducer {
             return .send(\StoreValues.loggerStore, action: .log("Incremented to \(state.count)"))
         case .notifyLogger:
             return .none
+        case .reset:
+            state = .init()
+            return .none
+            
         }
     }
 }
@@ -53,6 +60,7 @@ struct LoggerReducer: Reducer {
     
     enum Action: Sendable {
         case log(String)
+        case reset
     }
     
     @MainActor
@@ -61,6 +69,9 @@ struct LoggerReducer: Reducer {
         case .log(let message):
             state.logs.append(message)
             return .none
+        case .reset:
+            state = .init()
+            return .none
         }
     }
 }
@@ -68,25 +79,14 @@ struct LoggerReducer: Reducer {
 final class EffectSharedTests: XCTestCase {
     @Shared(\.counterStore) var counterStore
     @Shared(\.loggerStore) var loggerStore
-    
-    override func setUp() {
-        super.setUp()
-        
-        StoreValues._global.counterStore.state = CounterReducer.State()
-        StoreValues._global.loggerStore.state = LoggerReducer.State()
-    }
-    
-    override func tearDown() {
-        StoreValues._global.counterStore.state = CounterReducer.State()
-        StoreValues._global.loggerStore.state = LoggerReducer.State()
-        
-        super.tearDown()
-    }
 
     // MARK: - Test Cases
 
     @MainActor
     func testSharedEffectBetweenReducers() {
+        counterStore.send(.reset)
+        loggerStore.send(.reset)
+        
         counterStore.send(.increment)
         
         XCTAssertEqual(counterStore.state.count, 1)
@@ -95,6 +95,9 @@ final class EffectSharedTests: XCTestCase {
     
     @MainActor
     func testMultipleIncrements() {
+        counterStore.send(.reset)
+        loggerStore.send(.reset)
+        
         counterStore.send(.increment)
         counterStore.send(.increment)
         counterStore.send(.increment)
@@ -109,6 +112,9 @@ final class EffectSharedTests: XCTestCase {
     
     @MainActor
     func testLoggerReceivesManualLog() {
+        counterStore.send(.reset)
+        loggerStore.send(.reset)
+        
         loggerStore.send(.log("Manual log entry"))
         
         XCTAssertEqual(loggerStore.state.logs, ["Manual log entry"])
@@ -116,6 +122,9 @@ final class EffectSharedTests: XCTestCase {
     
     @MainActor
     func testIncrementDoesNotTriggerUnrelatedLogs() {
+        counterStore.send(.reset)
+        loggerStore.send(.reset)
+        
         counterStore.send(.increment)
         
         XCTAssertEqual(loggerStore.state.logs, ["Incremented to 1"])
