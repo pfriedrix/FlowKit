@@ -2,6 +2,51 @@ import SwiftUI
 
 extension Store {
     
+    /// Creates a `Binding` with a custom getter and action-based setter.
+    /// - Parameters:
+    ///   - get: A closure that returns the current value.
+    ///   - set: A closure that takes the new value and returns an `Action` to be dispatched.
+    /// - Returns: A `Binding` that allows SwiftUI views to read and write using custom logic.
+    @MainActor
+    public func binding<Value>(
+        get: @escaping @Sendable () -> Value,
+        set: @escaping (Value) -> Action
+    ) -> Binding<Value> {
+        Binding(
+            get: get,
+            set: { [weak self] newValue in
+                guard let self = self else { return }
+                DispatchQueue.main.async { [weak self] in
+                    self?.send(set(newValue))
+                }
+            }
+        )
+    }
+    
+    /// Creates a `Binding` with a custom getter that has access to the current state.
+    /// - Parameters:
+    ///   - get: A closure that receives the current state and returns a value.
+    ///   - set: A closure that takes the new value and returns an `Action` to be dispatched.
+    /// - Returns: A `Binding` that allows SwiftUI views to read and write using custom logic.
+    @MainActor
+    public func binding<Value>(
+        get: @escaping (State) -> Value,
+        set: @escaping (Value) -> Action
+    ) -> Binding<Value> {
+        Binding(
+            get: { [weak self] in
+                guard let self = self else { fatalError("Store is deallocated") }
+                return get(self.state)
+            },
+            set: { [weak self] newValue in
+                guard let self = self else { return }
+                DispatchQueue.main.async { [weak self] in
+                    self?.send(set(newValue))
+                }
+            }
+        )
+    }
+    
     /// Creates a `Binding` for a property in the store's state.
     /// - Parameters:
     ///   - keyPath: A key path to the specific property in the store's state that you want to bind to.
@@ -17,8 +62,8 @@ extension Store {
             },
             set: { [weak self] newValue in
                 guard let self = self else { return }
-                DispatchQueue.main.async {
-                    self.send(action(newValue))
+                DispatchQueue.main.async { [weak self] in
+                    self?.send(action(newValue))
                 }
             }
         )
@@ -38,8 +83,8 @@ extension Store {
             },
             set: { [weak self] _ in
                 guard let self = self else { return }
-                DispatchQueue.main.async {
-                    self.send(action)
+                DispatchQueue.main.async { [weak self] in
+                    self?.send(action)
                 }
             }
         )
@@ -47,6 +92,51 @@ extension Store {
 }
 
 extension Store where State: Storable {
+    /// Creates a `Binding` with a custom getter and action-based setter.
+    /// - Parameters:
+    ///   - get: A closure that returns the current value.
+    ///   - set: A closure that takes the new value and returns an `Action` to be dispatched.
+    /// - Returns: A `Binding` that allows SwiftUI views to read and write using custom logic.
+    @MainActor
+    public func binding<Value>(
+        get: @escaping @Sendable () -> Value,
+        set: @escaping (Value) -> Action
+    ) -> Binding<Value> {
+        Binding(
+            get: get,
+            set: { [weak self] newValue in
+                guard let self = self else { return }
+                DispatchQueue.main.async { [weak self] in
+                    self?.send(set(newValue))
+                }
+            }
+        )
+    }
+    
+    /// Creates a `Binding` with a custom getter that has access to the current state.
+    /// - Parameters:
+    ///   - get: A closure that receives the current state and returns a value.
+    ///   - set: A closure that takes the new value and returns an `Action` to be dispatched.
+    /// - Returns: A `Binding` that allows SwiftUI views to read and write using custom logic.
+    @MainActor
+    public func binding<Value>(
+        get: @Sendable @escaping (State) -> Value,
+        set: @escaping (Value) -> Action
+    ) -> Binding<Value> {
+        Binding(
+            get: { [weak self] in
+                guard let self = self else { fatalError("Store is deallocated") }
+                return get(self.state)
+            },
+            set: { [weak self] newValue in
+                guard let self = self else { return }
+                DispatchQueue.main.async { [weak self] in
+                    self?.send(set(newValue))
+                }
+            }
+        )
+    }
+    
     /// Creates a `Binding` for a property in the store's state.
     /// - Parameters:
     ///   - keyPath: A key path to a specific property in the store's state.
@@ -67,8 +157,8 @@ extension Store where State: Storable {
             },
             set: { [weak self] newValue in
                 guard let self = self else { return }
-                DispatchQueue.main.async {
-                    self.send(action(newValue))
+                DispatchQueue.main.async { [weak self] in
+                    self?.send(action(newValue))
                 }
             }
         )
@@ -88,8 +178,8 @@ extension Store where State: Storable {
             },
             set: { [weak self] _ in
                 guard let self = self else { return }
-                DispatchQueue.main.async {
-                    self.send(action)
+                DispatchQueue.main.async { [weak self] in
+                    self?.send(action)
                 }
             }
         )
