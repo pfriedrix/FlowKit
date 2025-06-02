@@ -33,8 +33,8 @@ extension Store {
     ) -> Binding<Value> {
         Binding(
             get: { [ weak self ] in
-                guard let self = self else { fatalError("Store is deallocated") }
-                return get(self.state)
+                guard let self else { fatalError("Store is deallocated") }
+                return get(state)
             },
             set: { [ weak self ] newValue in
                 guard let self else { return }
@@ -53,8 +53,8 @@ extension Store {
     public func binding<Value>(for keyPath: KeyPath<State, Value>, set action: @escaping (Value) -> Action) -> Binding<Value> {
         Binding(
             get: { [weak self] in
-                guard let self = self else { fatalError("Store is deallocated") }
-                return self.state[keyPath: keyPath]
+                guard let self else { fatalError("Store is deallocated") }
+                return state[keyPath: keyPath]
             },
             set: { [ weak self ] newValue in
                 guard let self else { return }
@@ -72,8 +72,8 @@ extension Store {
     public func binding<Value>(for keyPath: KeyPath<State, Value>, set action: Action) -> Binding<Value> {
         Binding(
             get: { [ weak self ] in
-                guard let self = self else { fatalError("Store is deallocated") }
-                return self.state[keyPath: keyPath]
+                guard let self else { fatalError("Store is deallocated") }
+                return state[keyPath: keyPath]
             },
             set: { [ weak self ] _ in
                 guard let self else { return }
@@ -115,8 +115,8 @@ extension Store where State: Storable {
     ) -> Binding<Value> {
         Binding(
             get: { [ weak self ] in
-                guard let self = self else { fatalError("Store is deallocated") }
-                return get(self.state)
+                guard let self else { fatalError("Store is deallocated") }
+                return get(state)
             },
             set: { [weak self] newValue in
                 guard let self else { return }
@@ -140,8 +140,8 @@ extension Store where State: Storable {
     public func binding<Value>(for keyPath: KeyPath<State, Value>, set action: @escaping (Value) -> Action) -> Binding<Value> {
         Binding(
             get: { [ weak self ] in
-                guard let self = self else { fatalError("Store is deallocated") }
-                return self.state[keyPath: keyPath]
+                guard let self else { fatalError("Store is deallocated") }
+                return state[keyPath: keyPath]
             },
             set: { [ weak self ] newValue in
                 guard let self else { return }
@@ -159,8 +159,8 @@ extension Store where State: Storable {
     public func binding<Value>(for keyPath: KeyPath<State, Value>, set action: Action) -> Binding<Value> {
         Binding(
             get: { [ weak self ] in
-                guard let self = self else { fatalError("Store is deallocated") }
-                return self.state[keyPath: keyPath]
+                guard let self else { fatalError("Store is deallocated") }
+                return state[keyPath: keyPath]
             },
             set: { [ weak self ] _ in
                 guard let self else { return }
