@@ -9,6 +9,5 @@ public protocol StoreKey: Sendable {
     associatedtype Value: Sendable = Self
     
     /// The default value for the store key.
-    @MainActor
     static var defaultValue: Self.Value { get }
 }

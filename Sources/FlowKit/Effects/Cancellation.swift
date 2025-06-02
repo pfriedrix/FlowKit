@@ -45,7 +45,7 @@ extension Effect {
         
         let task = Task {
             if Task.isCancelled {
-                await Logger.shared.debug("Task \(id): cancelled")
+                Logger.shared.debug("Task \(id): cancelled")
                 return
             }
             try await operation()

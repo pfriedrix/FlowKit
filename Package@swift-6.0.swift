@@ -7,7 +7,7 @@ let package = Package(
     name: "FlowKit",
     platforms: [
         .iOS(.v15),
-        .macOS(.v12),
+        .macOS(.v13),
         .watchOS(.v8),
         .tvOS(.v15)
     ],

@@ -1,4 +1,4 @@
-public struct ActionFormatter {
+public struct ActionFormatter: Sendable {
     /// Formats the action based on the specified format style.
     /// - Parameters:
     ///   - action: The action to format, represented as a string.

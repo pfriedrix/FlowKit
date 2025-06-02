@@ -49,12 +49,10 @@ extension Effect {
             } catch {
                 guard let handler = handler else {
                     #if DEBUG
-                    await Logger.shared.fault("🚨 UNHANDLED EFFECT ERROR: \(error)")
-                    await Logger.shared.fault("📍 This error was silently swallowed! Add error handling.")
-                    
-                    assertionFailure("Unhandled effect error: \(error)")  // Break в debugger
+                    Logger.shared.fault("🚨 UNHANDLED EFFECT ERROR: \(error)")
+                    Logger.shared.fault("📍 This error was silently swallowed! Add error handling.")
                     #else
-                    await Logger.shared.error("Unhandled effect error (silent failure): \(error)")
+                    Logger.shared.error("Unhandled effect error (silent failure): \(error)")
                     #endif
                     return
                 }

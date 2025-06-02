@@ -62,11 +62,12 @@ extension Store where State: Storable {
     ///   - action: The action to apply to the state.
     @MainActor
     private func dispatch(_ state: State, _ action: Action) {
-        let effect = resolve(state, action)
+        let result = resolve(state, action)
         
+        self.state = result.state
         self.state.save()
         
-        handle(effect)
+        handle(result.effect)
     }
     
     /// Handles the provided effect, performing any operations or additional actions it specifies.

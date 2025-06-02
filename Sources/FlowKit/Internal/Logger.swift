@@ -1,21 +1,44 @@
 import os
 
-final public class Logger {
+public struct Logger {
     public static let shared = Logger()
-    @MainActor
-    public static var logLevel: OSLogType = .debug
-    @MainActor
-    public static var formatStyle: ActionFormatter.FormatStyle = .short
-    
+   
+    private static let configLock = OSAllocatedUnfairLock(initialState: LoggerConfig())
+        
     private let formatter = ActionFormatter()
-    
     private let logger: os.Logger
+    
+    public static var logLevel: OSLogType {
+       get {
+           configLock.withLock { config in
+               config.logLevel
+           }
+       }
+       set {
+           configLock.withLock { config in
+               config.logLevel = newValue
+           }
+       }
+   }
+   
+   /// Thread-safe format style access
+   public static var formatStyle: ActionFormatter.FormatStyle {
+       get {
+           configLock.withLock { config in
+               config.formatStyle
+           }
+       }
+       set {
+           configLock.withLock { config in
+               config.formatStyle = newValue
+           }
+       }
+   }
     
     private init() {
         logger = os.Logger(subsystem: "flow-kit", category: "store-events")
     }
     
-    @MainActor
     func action(_ action: @autoclosure () -> String) {
         let type = OSLogType.debug
         guard type.rawValue >= Self.logLevel.rawValue else {
@@ -26,7 +49,6 @@ final public class Logger {
         logger.log(level: type, "\(message)")
     }
     
-    @MainActor
     func debug(_ message: @autoclosure () -> String) {
         let type = OSLogType.debug
         guard type.rawValue >= Self.logLevel.rawValue else {
@@ -37,7 +59,6 @@ final public class Logger {
         logger.log(level: type, "\(msg)")
     }
     
-    @MainActor
     func info(_ message: @autoclosure () -> String) {
         let type = OSLogType.info
         guard type.rawValue >= Self.logLevel.rawValue else {
@@ -48,7 +69,6 @@ final public class Logger {
         logger.log(level: type, "\(msg)")
     }
     
-    @MainActor
     func error(_ message: @autoclosure () -> String) {
         let type = OSLogType.error
         guard type.rawValue >= Self.logLevel.rawValue else {
@@ -59,7 +79,6 @@ final public class Logger {
         logger.log(level: type, "\(msg)")
     }
     
-    @MainActor
     func fault(_ message: @autoclosure () -> String) {
         let type = OSLogType.fault
         guard type.rawValue >= Self.logLevel.rawValue else {
@@ -71,4 +90,4 @@ final public class Logger {
     }
 }
 
-extension Logger: @unchecked Sendable { }
+extension Logger: Sendable { }

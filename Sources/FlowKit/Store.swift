@@ -37,7 +37,6 @@ final public class Store<R: Reducer>: ObservableObject {
     /// - Parameters:
     ///   - initial: The initial state of the store.
     ///   - reducer: The reducer that will handle actions and state updates.
-    @MainActor
     public required init(initial: State, reducer: R) {
         self.state = initial
         self.reducer = reducer
@@ -69,9 +68,11 @@ final public class Store<R: Reducer>: ObservableObject {
     ///   - action: The action to process and apply to the state.
     @MainActor
     private func dispatch(_ state: State, _ action: Action) {
-        let effect = resolve(state, action)
+        let result = resolve(state, action)
         
-        handle(effect)
+        self.state = result.state
+        
+        handle(result.effect)
     }
     
     /// Resolves the action by applying it to the current state, and returns an effect.
@@ -84,15 +85,13 @@ final public class Store<R: Reducer>: ObservableObject {
     ///   - action: The action applied to update the state.
     /// - Returns: An effect that may trigger further actions or operations.
     @MainActor
-    func resolve(_ state: State, _ action: Action) -> Effect<Action> {
+    func resolve(_ state: State, _ action: Action) -> Resolution<State, Action> {
         var currentState = state
         let effect = reducer.reduce(into: &currentState, action: action)
         
         logger.info("\(name): resolve `\(action)`: \(currentState)")
         
-        self.state = currentState
-        
-        return effect
+        return .init(state: currentState, effect: effect)
     }
     
     /// Handles the provided effect, performing any operations or additional actions it specifies.
