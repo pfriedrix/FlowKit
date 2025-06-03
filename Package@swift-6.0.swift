@@ -14,37 +14,31 @@ let package = Package(
     products: [
         .library(
             name: "FlowKit",
-            targets: ["FlowKit"]),
-        .library(
-              name: "FlowMacros",
-              targets: ["FlowMacros"]
-            ),
+            targets: ["FlowKit"])
     ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-syntax", exact: "600.0.1")
     ],
     targets: [
         .target(
-            name: "FlowKit"),
+            name: "FlowKit",
+            dependencies: [
+                "FlowMacros"
+            ]
+        ),
         .testTarget(
-            name: "Tests",
+            name: "FlowKitTests",
             dependencies: [
                 "FlowKit"
             ]
         ),
-        .target(
-            name: "FlowMacros",
-            dependencies: [
-                "FlowMacrosPlugin"
-            ]
-        ),
         .macro(
-            name: "FlowMacrosPlugin",
+            name: "FlowMacros",
             dependencies: [
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
             ]
-        ),
+        )
     ],
     swiftLanguageModes: [.v6]
 )
