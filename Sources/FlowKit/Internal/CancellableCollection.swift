@@ -43,6 +43,15 @@ public actor CancellableCollection {
     public func remove(withKey key: AnyHashable) {
         tasks.removeValue(forKey: key)
     }
+    
+    /// Returns the current number of active tasks in the collection.
+    ///
+    /// This method provides visibility into the collection's state for monitoring purposes.
+    ///
+    /// - Returns: The number of tasks currently stored in the collection.
+    public var activeTaskCount: Int {
+        tasks.count
+    }
 }
 
 let _cancellationCollection = CancellableCollection()

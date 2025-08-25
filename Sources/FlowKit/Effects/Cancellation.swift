@@ -44,11 +44,12 @@ extension Effect {
         }
         
         let task = Task {
-            if Task.isCancelled {
+            do {
+                try Task.checkCancellation()
+                try await operation()
+            } catch is CancellationError {
                 Logger.shared.debug("Task \(id): cancelled")
-                return
             }
-            try await operation()
         }
         await _cancellationCollection.add(task: task, withKey: id)
     }
