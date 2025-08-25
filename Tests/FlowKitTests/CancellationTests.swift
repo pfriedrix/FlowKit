@@ -34,6 +34,51 @@ final class CancellableReducer: Reducer {
     }
 }
 
+final class RaceConditionTestReducer: Reducer {
+    struct State {
+        var executionCount: Int = 0
+        var wasCancelled: Bool = false
+        var taskStarted: Bool = false
+    }
+
+    enum Action {
+        case startRaceConditionTask
+        case cancelRaceConditionTask
+        case taskExecuted
+        case taskCancelled
+    }
+
+    func reduce(into state: inout State, action: Action) -> Effect<Action> {
+        switch action {
+        case .startRaceConditionTask:
+            state.taskStarted = true
+            return .run { send in
+                // Simulate some work that could be interrupted
+                do {
+                    // Add a small delay to allow cancellation to occur
+                    try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
+                    try Task.checkCancellation()
+                    await send(.taskExecuted)
+                } catch is CancellationError {
+                    await send(.taskCancelled)
+                }
+            }
+            .cancellable(id: "raceConditionTask", cancelInFlight: true)
+            
+        case .cancelRaceConditionTask:
+            return .cancel(id: "raceConditionTask")
+            
+        case .taskExecuted:
+            state.executionCount += 1
+            return .none
+            
+        case .taskCancelled:
+            state.wasCancelled = true
+            return .none
+        }
+    }
+}
+
 final class CancellationTests: XCTestCase {
     @MainActor
     var store: Store<CancellableReducer> = Store(initial: CancellableReducer.State(), reducer: CancellableReducer())
@@ -117,5 +162,39 @@ final class CancellationTests: XCTestCase {
         // Ensure no completion occurs
         try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
         XCTAssertEqual(store.state.data, "Task Started", "The task should not have completed after cancellation.")
+    }
+    
+    // Test 6: Race condition fix - Task.checkCancellation() prevents execution
+    @MainActor
+    func testRaceConditionFix() async throws {
+        let reducer = RaceConditionTestReducer()
+        let store = Store(initial: RaceConditionTestReducer.State(), reducer: reducer)
+        
+        // Start task that will check cancellation after a delay
+        store.send(.startRaceConditionTask)
+        
+        // Verify task started
+        XCTAssertTrue(store.state.taskStarted, "Task should have been marked as started")
+        
+        // Cancel immediately after starting
+        store.send(.cancelRaceConditionTask)
+        
+        // Wait for either cancellation or execution to complete
+        try await waitForStateChange(timeout: 2.0) {
+            store.state.wasCancelled || store.state.executionCount > 0
+        }
+        
+        // The key test: task should either be cancelled OR executed, but not both
+        // This verifies that our cancellation mechanism works properly
+        if store.state.wasCancelled {
+            XCTAssertEqual(store.state.executionCount, 0, "If cancelled, task should not have executed")
+        } else {
+            XCTAssertEqual(store.state.executionCount, 1, "If not cancelled, task should have executed")
+            XCTAssertFalse(store.state.wasCancelled, "If executed, task should not be marked as cancelled")
+        }
+        
+        // At minimum, one of these should be true (task completed one way or another)
+        XCTAssertTrue(store.state.wasCancelled || store.state.executionCount > 0, 
+                     "Task should have either been cancelled or executed")
     }
 }

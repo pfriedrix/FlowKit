@@ -181,4 +181,66 @@ final class PersistableTests: XCTestCase {
         XCTAssertEqual(loadedReducerAState?.value, "Reducer A Value", "ReducerA.State should retain its own saved value.")
         XCTAssertEqual(loadedReducerBState?.value, "Reducer B Value", "ReducerB.State should retain its own saved value.")
     }
+    
+    /// Test that corrupted data is automatically removed during load
+    @MainActor
+    func testCorruptedDataAutoRemoval() {
+        // Save valid data first
+        let testState = TestState(value: "Valid")
+        testState.save()
+        
+        // Verify it loads correctly
+        XCTAssertEqual(TestState.load()?.value, "Valid")
+        
+        // Manually corrupt the data
+        let corruptedData = "This is not JSON".data(using: .utf8)!
+        UserDefaults.standard.set(corruptedData, forKey: TestState.key)
+        
+        // Attempt to load - should return nil and clean up corrupted data
+        let loadedState = TestState.load()
+        XCTAssertNil(loadedState, "Loading corrupted data should return nil")
+        
+        // Verify corrupted data was removed
+        let dataAfterCleanup = UserDefaults.standard.data(forKey: TestState.key)
+        XCTAssertNil(dataAfterCleanup, "Corrupted data should be automatically removed")
+    }
+    
+    /// Test that save handles encoding failures gracefully
+    @MainActor
+    func testSaveEncodingFailureRecovery() {
+        struct CorruptState: Persistable {
+            var value: String = "test"
+            
+            // Custom encode that always fails to simulate encoding error
+            func encode(to encoder: Encoder) throws {
+                throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Simulated encoding failure"])
+            }
+        }
+        
+        let corruptState = CorruptState()
+        
+        // This should not crash and should handle the error gracefully
+        corruptState.save()
+        
+        // Verify no data was saved due to encoding failure
+        let savedData = UserDefaults.standard.data(forKey: CorruptState.key)
+        XCTAssertNil(savedData, "No data should be saved when encoding fails")
+    }
+    
+    /// Test UserDefaults synchronization failure handling
+    @MainActor
+    func testSynchronizationFailureHandling() {
+        // This test verifies that synchronization check doesn't crash
+        // Note: UserDefaults.synchronize() typically always returns true in tests,
+        // but we're testing that the code path exists and handles it properly
+        
+        let testState = TestState(value: "Sync test")
+        
+        // This should complete without crashing even if synchronization fails
+        testState.save()
+        
+        // Verify state was attempted to be saved (synchronization might succeed in tests)
+        let loadedState = TestState.load()
+        XCTAssertEqual(loadedState?.value, "Sync test", "State should be saved despite sync check")
+    }
 }
