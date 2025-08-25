@@ -54,7 +54,6 @@ final public class Store<R: Reducer>: ObservableObject {
         logger.action("\(name).\(action)")
         
         dispatch(state, action)
-        objectWillChange.send()
     }
     
     /// Handles the dispatching of actions and state updates asynchronously.
@@ -70,6 +69,7 @@ final public class Store<R: Reducer>: ObservableObject {
     private func dispatch(_ state: State, _ action: Action) {
         let result = resolve(state, action)
         
+        objectWillChange.send()
         self.state = result.state
         
         handle(result.effect)

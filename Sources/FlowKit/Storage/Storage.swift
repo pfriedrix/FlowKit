@@ -51,7 +51,6 @@ extension Store where State: Storable {
         logger.action("\(name).\(action)")
         
         dispatch(state, action)
-        objectWillChange.send()
     }
     
     /// Handles the core logic for dispatching an action with automatic state persistence.
@@ -71,6 +70,7 @@ extension Store where State: Storable {
     private func dispatch(_ state: State, _ action: Action) {
         let result = resolve(state, action)
         
+        objectWillChange.send()
         self.state = result.state
         self.state.save()
         
