@@ -32,6 +32,14 @@ final public class Store<R: Reducer>: ObservableObject {
     /// The name of the store, based on the reducer type.
     lazy var name: String = String(describing: type(of: reducer))
     
+    /// Task storage for automatic cleanup
+    private var tasks: [UUID: Task<Void, Never>] = [:]
+    
+    deinit {
+        tasks.values.forEach { $0.cancel() }
+        tasks.removeAll()
+    }
+    
     /// Initializes the store with an initial state and a reducer.
     ///
     /// - Parameters:
@@ -75,6 +83,26 @@ final public class Store<R: Reducer>: ObservableObject {
         handle(result.effect)
     }
     
+    /// Runs a task with automatic cleanup
+    @MainActor
+    func runTask(priority: TaskPriority?, operation: @escaping @Sendable (Send<Action>) async -> Void) {
+        let taskId = UUID()
+        let task = Task(priority: priority) { [weak self] in
+            defer {
+                Task { @MainActor [weak self] in
+                    if let task = self?.tasks.removeValue(forKey: taskId) {
+                        task.cancel()
+                    }
+                }
+            }
+            await operation(Send { [weak self] action in
+                guard !Task.isCancelled, let self = self else { return }
+                self.send(action)
+            })
+        }
+        tasks[taskId] = task
+    }
+    
     /// Resolves the action by applying it to the current state, and returns an effect.
     ///
     /// This method uses the reducer to process the action, updating the state and generating
@@ -84,7 +112,6 @@ final public class Store<R: Reducer>: ObservableObject {
     ///   - state: The state to update.
     ///   - action: The action applied to update the state.
     /// - Returns: An effect that may trigger further actions or operations.
-    @MainActor
     func resolve(_ state: State, _ action: Action) -> Resolution<State, Action> {
         var currentState = state
         let effect = reducer.reduce(into: &currentState, action: action)
@@ -107,11 +134,7 @@ final public class Store<R: Reducer>: ObservableObject {
         case let .send(action):
             send(action)
         case let .run(priority, operation):
-            Task(priority: priority) { [weak self] in
-                await operation(Send { action in
-                    self?.send(action)
-                })
-            }
+            runTask(priority: priority, operation: operation)
         }
     }
 }

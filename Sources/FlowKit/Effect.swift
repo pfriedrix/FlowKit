@@ -94,7 +94,6 @@ extension Effect.Operation: Equatable {
 ///
 /// - Parameters:
 ///   - Action: The type of action to send.
-
 public struct Send<Action>: Sendable {
     /// A closure that sends the specified action.
     let send: @Sendable @MainActor (Action) -> Void
@@ -102,7 +101,7 @@ public struct Send<Action>: Sendable {
     /// Creates a new `Send` instance with a given action dispatcher.
     ///
     /// - Parameter send: A closure to dispatch actions.
-    public init(send: @escaping @MainActor @Sendable (Action) -> Void) {
+    public init(send: @escaping @Sendable @MainActor (Action) -> Void) {
         self.send = send
     }
     

@@ -76,7 +76,6 @@ extension Store where State: Storable {
         
         handle(result.effect)
     }
-    
     /// Handles the provided effect, performing any operations or additional actions it specifies.
     ///
     /// This method executes the effect's operation, which may be synchronous or asynchronous.
@@ -92,11 +91,7 @@ extension Store where State: Storable {
         case let .send(action):
             send(action)
         case let .run(priority, operation):
-            Task(priority: priority) { [weak self] in
-                await operation(Send { action in
-                    self?.send(action)
-                })
-            }
+            runTask(priority: priority, operation: operation)
         }
     }
 }
