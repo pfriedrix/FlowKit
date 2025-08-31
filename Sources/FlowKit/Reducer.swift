@@ -27,5 +27,5 @@ public protocol Reducer<State, Action> {
     ///   - state: The current state of the application, which will be modified by the action.
     ///   - action: The action to apply to the state.
     /// - Returns: An effect that may trigger further state updates or actions.
-    @MainActor func reduce(into state: inout State, action: Action) -> Effect<Action>
+    func reduce(into state: inout State, action: Action) -> Effect<Action>
 }

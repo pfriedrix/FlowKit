@@ -84,7 +84,6 @@ final public class Store<R: Reducer>: ObservableObject {
     ///   - state: The state to update.
     ///   - action: The action applied to update the state.
     /// - Returns: An effect that may trigger further actions or operations.
-    @MainActor
     func resolve(_ state: State, _ action: Action) -> Resolution<State, Action> {
         var currentState = state
         let effect = reducer.reduce(into: &currentState, action: action)
