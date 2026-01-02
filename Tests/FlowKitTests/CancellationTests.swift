@@ -20,7 +20,7 @@ final class CancellableReducer: Reducer {
             return .run { send in
                 // Simulated async operation
                 try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-                await send(.completeTask)
+                send(.completeTask)
             }
             .cancellable(id: "testTask", cancelInFlight: true)
             
@@ -58,9 +58,9 @@ final class RaceConditionTestReducer: Reducer {
                     // Add a small delay to allow cancellation to occur
                     try await Task.sleep(nanoseconds: 50_000_000) // 0.05 seconds
                     try Task.checkCancellation()
-                    await send(.taskExecuted)
+                    send(.taskExecuted)
                 } catch is CancellationError {
-                    await send(.taskCancelled)
+                    send(.taskCancelled)
                 }
             }
             .cancellable(id: "raceConditionTask", cancelInFlight: true)

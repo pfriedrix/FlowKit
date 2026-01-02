@@ -14,7 +14,6 @@ struct SampleReducer: Reducer {
         case updateValue(String)
     }
     
-    @MainActor
     func reduce(into state: inout State, action: Action) -> Effect<Action> {
         switch action {
         case .updateValue(let newValue):
@@ -34,7 +33,6 @@ struct ReducerA: Reducer {
         case updateValue(String)
     }
     
-    @MainActor
     func reduce(into state: inout State, action: Action) -> Effect<Action> {
         switch action {
         case .updateValue(let newValue):
@@ -54,7 +52,6 @@ struct ReducerB: Reducer {
         case updateValue(String)
     }
     
-    @MainActor
     func reduce(into state: inout State, action: Action) -> Effect<Action> {
         switch action {
         case .updateValue(let newValue):

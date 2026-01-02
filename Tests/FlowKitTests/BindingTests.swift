@@ -25,7 +25,6 @@ final class BindingTests: XCTestCase {
             case ignoreUpdate
         }
         
-        @MainActor
         func reduce(into state: inout State, action: Action) -> Effect<Action> {
             switch action {
             case .updateSomeState(let newValue):

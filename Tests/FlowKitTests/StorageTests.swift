@@ -172,7 +172,6 @@ class StorageTests: XCTestCase {
                 case decrement
             }
 
-            @MainActor
             func reduce(into state: inout State, action: Action) -> Effect<Action> {
                 switch action {
                 case .increment:
@@ -223,7 +222,6 @@ class StorageTests: XCTestCase {
                 case decrement
             }
 
-            @MainActor
             func reduce(into state: inout State, action: Action) -> Effect<Action> {
                 switch action {
                 case .decrement:
@@ -272,14 +270,13 @@ class StorageTests: XCTestCase {
                 case delayedIncrement
             }
 
-            @MainActor
             func reduce(into state: inout State, action: Action) -> Effect<Action> {
                 switch action {
                 case .increment:
                     state.value += 1
                     return .run(priority: .medium) { send in
                         try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate 1-second delay
-                        await send(.delayedIncrement)
+                        send(.delayedIncrement)
                     }
                 case .delayedIncrement:
                     state.value += 1
@@ -302,5 +299,6 @@ class StorageTests: XCTestCase {
         // Then
         let savedState = AsyncEffectReducer.State.load()
         XCTAssertEqual(savedState?.value, 2)  // 1 from increment + 1 from delayedIncrement
+        XCTAssertEqual(store.state.value, 2)  // 1 from increment + 1 from delayedIncrement
     }
 }

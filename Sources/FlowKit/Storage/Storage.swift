@@ -46,7 +46,6 @@ extension Store where State: Storable {
     /// This ensures that all state changes are immediately persisted.
     ///
     /// - Parameter action: The action to send to the reducer for processing.
-    @MainActor
     public func send(_ action: Action) {
         logger.action("\(name).\(action)")
         
@@ -66,7 +65,6 @@ extension Store where State: Storable {
     /// - Parameters:
     ///   - state: The current state to be updated.
     ///   - action: The action to apply to the state.
-    @MainActor
     private func dispatch(_ state: State, _ action: Action) {
         let result = resolve(state, action)
         
@@ -83,13 +81,16 @@ extension Store where State: Storable {
     /// maintaining the automatic persistence behavior of the storage-enabled store.
     ///
     /// - Parameter effect: The effect to be handled.
-    @MainActor
     private func handle(_ effect: Effect<Action>) {
         switch effect.operation {
         case .none:
             return
         case let .send(action):
             send(action)
+        case let .merge(actions):
+            for action in actions {
+                send(action)
+            }
         case let .run(priority, operation):
             runTask(priority: priority, operation: operation)
         }

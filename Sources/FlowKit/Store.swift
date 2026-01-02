@@ -57,7 +57,6 @@ final public class Store<R: Reducer>: ObservableObject {
     /// and triggers associated effects, which may include additional actions or asynchronous operations.
     ///
     /// - Parameter action: The action to send to the reducer for processing.
-    @MainActor
     public func send(_ action: Action) {
         logger.action("\(name).\(action)")
         
@@ -73,7 +72,6 @@ final public class Store<R: Reducer>: ObservableObject {
     /// - Parameters:
     ///   - state: The current state before the action is applied.
     ///   - action: The action to process and apply to the state.
-    @MainActor
     private func dispatch(_ state: State, _ action: Action) {
         let result = resolve(state, action)
         
@@ -84,12 +82,11 @@ final public class Store<R: Reducer>: ObservableObject {
     }
     
     /// Runs a task with automatic cleanup
-    @MainActor
     func runTask(priority: TaskPriority?, operation: @escaping @Sendable (Send<Action>) async -> Void) {
         let taskId = UUID()
         let task = Task(priority: priority) { [weak self] in
             defer {
-                Task { @MainActor [weak self] in
+                Task { [weak self] in
                     if let task = self?.tasks.removeValue(forKey: taskId) {
                         task.cancel()
                     }
@@ -127,12 +124,15 @@ final public class Store<R: Reducer>: ObservableObject {
     /// Asynchronous operations are scheduled with a task to ensure proper execution.
     ///
     /// - Parameter effect: The effect to be handled.
-    @MainActor
     private func handle(_ effect: Effect<Action>) {
         switch effect.operation {
         case .none: return
         case let .send(action):
             send(action)
+        case let .merge(actions):
+            for action in actions {
+                send(action)
+            }
         case let .run(priority, operation):
             runTask(priority: priority, operation: operation)
         }

@@ -10,7 +10,7 @@
 /// - Parameters:
 ///   - State: The type representing the state managed by the reducer.
 ///   - Action: The type representing the actions handled by the reducer.
-public protocol Reducer<State, Action> {
+public protocol Reducer<State, Action>: Sendable {
     
     /// The type of state being stored.
     associatedtype State: Sendable
