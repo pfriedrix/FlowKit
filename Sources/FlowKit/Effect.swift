@@ -10,11 +10,13 @@ public struct Effect<Action: Sendable> {
     /// An enumeration describing the types of operations an `Effect` can perform.
     ///
     /// - `none`: Represents the absence of an effect.
-/// - `send`: Directly sends an action.
-/// - `run`: Executes an asynchronous task that can trigger actions during its operation.
+    /// - `send`: Directly sends an action.
+    /// - `merge`: Sends multiple actions sequentially.
+    /// - `run`: Executes an asynchronous task...
     enum Operation {
         case none
         case send(Action)
+        case merge([Action])
         case run(TaskPriority? = nil, @Sendable (_ send: Send<Action>) async -> Void)
     }
     
@@ -54,7 +56,7 @@ extension Effect {
                     #else
                     Logger.shared.error("Unhandled effect error (silent failure): \(error)")
                     #endif
-                    return
+                    return  
                 }
                 await handler(error, send)
             }
@@ -68,6 +70,15 @@ extension Effect {
     public static func send(_ action: Action) -> Self {
         Self(operation: .send(action))
     }
+    
+    /// Creates an effect that sends multiple actions sequentially.
+    ///
+    /// - Parameter actions: The actions to be sent in order.
+    /// - Returns: An `Effect` that dispatches the specified actions.
+    public static func merge(_ actions: Action...) -> Self {
+        guard !actions.isEmpty else { return .none }
+        return Self(operation: .merge(actions))
+    }
 }
 
 extension Effect.Operation: Equatable {
@@ -78,6 +89,8 @@ extension Effect.Operation: Equatable {
     static func == (lhs: Effect.Operation, rhs: Effect.Operation) -> Bool {
         switch (lhs, rhs) {
         case (.none, .none):
+            return true
+        case (.merge, .merge):
             return true
         case (.run(let lhsPriority, _), .run(let rhsPriority, _)):
             return lhsPriority == rhsPriority
@@ -96,19 +109,18 @@ extension Effect.Operation: Equatable {
 ///   - Action: The type of action to send.
 public struct Send<Action>: Sendable {
     /// A closure that sends the specified action.
-    let send: @Sendable @MainActor (Action) -> Void
+    let send: @Sendable (Action) -> Void
     
     /// Creates a new `Send` instance with a given action dispatcher.
     ///
     /// - Parameter send: A closure to dispatch actions.
-    public init(send: @escaping @Sendable @MainActor (Action) -> Void) {
+    public init(send: @escaping @Sendable (Action) -> Void) {
         self.send = send
     }
     
     /// Dispatches an action, unless the task is canceled.
     ///
     /// - Parameter action: The action to be sent.
-    @MainActor
     public func callAsFunction(_ action: Action) {
         guard !Task.isCancelled else { return }
         self.send(action)

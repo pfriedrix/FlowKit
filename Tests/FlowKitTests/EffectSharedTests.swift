@@ -12,13 +12,11 @@ extension StoreValues {
         static let defaultValue = Store(initial: ManualLoggerReducer.State(), reducer: ManualLoggerReducer())
     }
     
-    @MainActor
     var manualCounterStore: Store<ManualCounterReducer> {
         get { self[ManualCounterStoreKey.self] }
         set { self[ManualCounterStoreKey.self] = newValue }
     }
     
-    @MainActor
     var manualLoggerStore: Store<ManualLoggerReducer> {
         get { self[ManualLoggerStoreKey.self] }
         set { self[ManualLoggerStoreKey.self] = newValue }
@@ -38,13 +36,12 @@ struct ManualCounterReducer: Reducer {
         case increment
         case reset
     }
-    
-    @MainActor
+
     func reduce(into state: inout State, action: Action) -> Effect<Action> {
         switch action {
         case .increment:
             state.count += 1
-            return .send(\StoreValues.manualLoggerStore, action: .log("MANUAL: Incremented to \(state.count)"))
+            return .send(\.manualLoggerStore, action: .log("MANUAL: Incremented to \(state.count)"))
         case .reset:
             state = .init()
             return .none
@@ -63,7 +60,6 @@ struct ManualLoggerReducer: Reducer {
         case reset
     }
     
-    @MainActor
     func reduce(into state: inout State, action: Action) -> Effect<Action> {
         switch action {
         case .log(let message):
@@ -86,13 +82,13 @@ struct InjectCounterReducer: Reducer {
         case increment
         case reset
     }
-    
+
     @MainActor
     func reduce(into state: inout State, action: Action) -> Effect<Action> {
         switch action {
         case .increment:
             state.count += 1
-            return .send(\StoreValues.injectLoggerStore, action: .log("INJECT: Incremented to \(state.count)"))
+            return .send(\.injectLoggerStore, action: .log("INJECT: Incremented to \(state.count)"))
         case .reset:
             state = .init()
             return .none
@@ -111,7 +107,6 @@ struct InjectLoggerReducer: Reducer {
         case reset
     }
     
-    @MainActor
     func reduce(into state: inout State, action: Action) -> Effect<Action> {
         switch action {
         case .log(let message):
@@ -124,6 +119,7 @@ struct InjectLoggerReducer: Reducer {
     }
 }
 
+@MainActor
 final class EffectSharedTests: XCTestCase {
     
     @Shared(\.manualCounterStore) var manualCounterStore

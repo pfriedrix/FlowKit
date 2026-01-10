@@ -33,10 +33,18 @@ extension Effect {
         case .none:
             return .none
             
+        case let .merge(actions):
+            return .run { send in
+                let transformedSend = transform.apply(to: send)
+                for action in actions {
+                    transformedSend(action)
+                }
+            }
+            
         case .send(let action):
             return .run { send in
                 let transformedSend = transform.apply(to: send)
-                await transformedSend(action)
+                transformedSend(action)
             }
             
         case .run(let priority, let operation):

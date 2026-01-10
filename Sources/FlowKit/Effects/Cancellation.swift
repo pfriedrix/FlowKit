@@ -12,8 +12,8 @@ extension Effect {
     /// - Returns: A new effect that wraps the original operation in a cancellable context.
     public func cancellable(id: some Hashable & Sendable, cancelInFlight: Bool = false) -> Self {
         switch self.operation {
-        case .none, .send:
-            return .none
+        case .none, .send, .merge:
+            return self
         case let .run(priority, operation):
             return Self(
                 operation: .run(priority) { send in

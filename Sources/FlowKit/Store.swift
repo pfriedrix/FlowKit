@@ -33,7 +33,7 @@ final public class Store<R: Reducer>: ObservableObject {
     lazy var name: String = String(describing: type(of: reducer))
     
     /// Task storage for automatic cleanup
-    private var tasks: [UUID: Task<Void, Never>] = [:]
+    var tasks: [UUID: Task<Void, Never>] = [:]
     
     deinit {
         tasks.values.forEach { $0.cancel() }
@@ -60,10 +60,9 @@ final public class Store<R: Reducer>: ObservableObject {
     @MainActor
     public func send(_ action: Action) {
         logger.action("\(name).\(action)")
-        
         dispatch(state, action)
     }
-    
+
     /// Handles the dispatching of actions and state updates asynchronously.
     ///
     /// This method invokes the reducer to process the action and returns an effect. If the effect
@@ -76,29 +75,25 @@ final public class Store<R: Reducer>: ObservableObject {
     @MainActor
     private func dispatch(_ state: State, _ action: Action) {
         let result = resolve(state, action)
-        
+
         objectWillChange.send()
         self.state = result.state
-        
+
         handle(result.effect)
     }
     
     /// Runs a task with automatic cleanup
-    @MainActor
     func runTask(priority: TaskPriority?, operation: @escaping @Sendable (Send<Action>) async -> Void) {
         let taskId = UUID()
         let task = Task(priority: priority) { [weak self] in
-            defer {
-                Task { @MainActor [weak self] in
-                    if let task = self?.tasks.removeValue(forKey: taskId) {
-                        task.cancel()
-                    }
-                }
-            }
             await operation(Send { [weak self] action in
-                guard !Task.isCancelled, let self = self else { return }
-                self.send(action)
+                guard !Task.isCancelled else { return }
+                Task { @MainActor [weak self] in
+                    self?.send(action)
+                }
             })
+
+            self?.tasks.removeValue(forKey: taskId)
         }
         tasks[taskId] = task
     }
@@ -112,13 +107,14 @@ final public class Store<R: Reducer>: ObservableObject {
     ///   - state: The state to update.
     ///   - action: The action applied to update the state.
     /// - Returns: An effect that may trigger further actions or operations.
+    @MainActor
     func resolve(_ state: State, _ action: Action) -> Resolution<State, Action> {
         var currentState = state
         let effect = reducer.reduce(into: &currentState, action: action)
         
         logger.info("\(name): resolve `\(action)`: \(currentState)")
         
-        return .init(state: currentState, effect: effect)
+        return Resolution(state: currentState, effect: effect)
     }
     
     /// Handles the provided effect, performing any operations or additional actions it specifies.
@@ -133,6 +129,10 @@ final public class Store<R: Reducer>: ObservableObject {
         case .none: return
         case let .send(action):
             send(action)
+        case let .merge(actions):
+            for action in actions {
+                send(action)
+            }
         case let .run(priority, operation):
             runTask(priority: priority, operation: operation)
         }

@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import FlowKit
 
+@MainActor
 final class BindingTests: XCTestCase {
     struct AppReducer: Reducer {
         struct State: Equatable {
@@ -25,7 +26,6 @@ final class BindingTests: XCTestCase {
             case ignoreUpdate
         }
         
-        @MainActor
         func reduce(into state: inout State, action: Action) -> Effect<Action> {
             switch action {
             case .updateSomeState(let newValue):

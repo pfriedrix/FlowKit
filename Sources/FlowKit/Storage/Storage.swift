@@ -1,3 +1,6 @@
+
+import Foundation
+
 /// Extension of `Store` that adds persistent storage capabilities for state management.
 ///
 /// This extension allows the `Store` to automatically persist its state after each action
@@ -49,7 +52,6 @@ extension Store where State: Storable {
     @MainActor
     public func send(_ action: Action) {
         logger.action("\(name).\(action)")
-        
         dispatch(state, action)
     }
     
@@ -76,6 +78,23 @@ extension Store where State: Storable {
         
         handle(result.effect)
     }
+    
+    /// Runs a task with automatic cleanup
+    func runTask(priority: TaskPriority?, operation: @escaping @Sendable (Send<Action>) async -> Void) {
+        let taskId = UUID()
+        let task = Task(priority: priority) { [weak self] in
+            await operation(Send { [weak self] action in
+                guard !Task.isCancelled else { return }
+                Task { @MainActor [weak self] in
+                    self?.send(action)
+                }
+            })
+
+            self?.tasks.removeValue(forKey: taskId)
+        }
+        tasks[taskId] = task
+    }
+    
     /// Handles the provided effect, performing any operations or additional actions it specifies.
     ///
     /// This method executes the effect's operation, which may be synchronous or asynchronous.
@@ -90,6 +109,10 @@ extension Store where State: Storable {
             return
         case let .send(action):
             send(action)
+        case let .merge(actions):
+            for action in actions {
+                send(action)
+            }
         case let .run(priority, operation):
             runTask(priority: priority, operation: operation)
         }

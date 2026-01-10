@@ -74,7 +74,6 @@ struct CounterReducer: Reducer {
         case decrement
     }
     
-    @MainActor
     func reduce(into state: inout State, action: Action) -> Effect<Action> {
         switch action {
         case .increment:
@@ -149,7 +148,6 @@ enum AppAction {
 }
 
 struct AppReducer: Reducer {
-    @MainActor
     func reduce(into state: inout AppState, action: AppAction) -> Effect<AppAction> {
         switch action {
         case .increment:

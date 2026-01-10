@@ -1,3 +1,6 @@
+
+import Foundation
+
 extension Effect {
     /// Dispatches an action to a shared store instance.
     ///

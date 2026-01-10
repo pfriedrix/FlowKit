@@ -47,7 +47,6 @@ final class LoggerTests: XCTestCase {
         XCTAssertEqual(formattedAction, "Dispatching action: ArchiveReducer.scenePhase", "The abbreviated format should only show the main action prefix.")
     }
     
-    @MainActor
     func testLoggerActionDispatch() {
         // Given
         let logger = Logger.shared

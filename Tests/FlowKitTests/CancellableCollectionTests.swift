@@ -1,6 +1,7 @@
 @_spi(Internals) @testable import FlowKit
 import XCTest
 
+@MainActor
 final class CancellableCollectionTests: XCTestCase {
     var collection: CancellableCollection!
     

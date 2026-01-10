@@ -76,7 +76,6 @@ class StorageTests: XCTestCase {
     }
     
     // Test that state is loaded from persistent storage when initializing the store
-    @MainActor
     func testStateLoading() {
         // Given
         let savedState = MockReducer.State(value: 42)
@@ -110,7 +109,6 @@ class StorageTests: XCTestCase {
     }
     
     // Test that state defaults to the provided initial state if no saved state exists
-    @MainActor
     func testStateNotLoadedIfNoSavedStateExists() {
         // Given
         let reducer = MockReducer()
@@ -172,7 +170,6 @@ class StorageTests: XCTestCase {
                 case decrement
             }
 
-            @MainActor
             func reduce(into state: inout State, action: Action) -> Effect<Action> {
                 switch action {
                 case .increment:
@@ -223,7 +220,6 @@ class StorageTests: XCTestCase {
                 case decrement
             }
 
-            @MainActor
             func reduce(into state: inout State, action: Action) -> Effect<Action> {
                 switch action {
                 case .decrement:
@@ -253,18 +249,6 @@ class StorageTests: XCTestCase {
         struct AsyncEffectReducer: Reducer {
             struct State: Persistable, Equatable {
                 var value: Int
-                func save() {
-                    if let data = try? JSONEncoder().encode(self) {
-                        UserDefaults.standard.set(data, forKey: "AsyncEffectState")
-                    }
-                }
-                static func load() -> State? {
-                    guard let data = UserDefaults.standard.data(forKey: "AsyncEffectState"),
-                          let state = try? JSONDecoder().decode(State.self, from: data) else {
-                        return nil
-                    }
-                    return state
-                }
             }
 
             enum Action {
@@ -272,14 +256,13 @@ class StorageTests: XCTestCase {
                 case delayedIncrement
             }
 
-            @MainActor
             func reduce(into state: inout State, action: Action) -> Effect<Action> {
                 switch action {
                 case .increment:
                     state.value += 1
                     return .run(priority: .medium) { send in
                         try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate 1-second delay
-                        await send(.delayedIncrement)
+                        send(.delayedIncrement)
                     }
                 case .delayedIncrement:
                     state.value += 1
@@ -302,5 +285,6 @@ class StorageTests: XCTestCase {
         // Then
         let savedState = AsyncEffectReducer.State.load()
         XCTAssertEqual(savedState?.value, 2)  // 1 from increment + 1 from delayedIncrement
+        XCTAssertEqual(store.state.value, 2)  // 1 from increment + 1 from delayedIncrement
     }
 }
