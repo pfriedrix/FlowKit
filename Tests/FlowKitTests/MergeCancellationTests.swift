@@ -1,17 +1,13 @@
 import XCTest
 @testable import FlowKit
 
+@MainActor
 final class MergeCancellationTests: XCTestCase {
-    var store: Store<MergeCancellableReducer> = Store(initial: MergeCancellableReducer.State(), reducer: MergeCancellableReducer())
-
-    override func setUp() {
-        super.setUp()
-        store = Store(initial: MergeCancellableReducer.State(), reducer: MergeCancellableReducer())
-    }
 
     // Test 1: Merge effect with cancellable returns .none (immediate actions are not cancellable)
-    @MainActor
     func testMergeWithCancellableReturnsNone() async throws {
+        let store: Store<MergeCancellableReducer> = Store(initial: MergeCancellableReducer.State(), reducer: MergeCancellableReducer())
+        
         store.send(.startMergeWithCancellable)
 
         // Merge actions should execute immediately (not async), so cancellation doesn't apply
@@ -20,28 +16,30 @@ final class MergeCancellationTests: XCTestCase {
     }
 
     // Test 2: Cancel command should not affect already-executed merge actions
-    @MainActor
     func testCancelDoesNotAffectMergeActions() async throws {
+        let store: Store<MergeCancellableReducer> = Store(initial: MergeCancellableReducer.State(), reducer: MergeCancellableReducer())
+        
         store.send(.startMergeWithCancellable)
 
         // Try to cancel immediately
         store.send(.cancelMerge)
 
         try await waitForStateChange(timeout: 1.0) {
-            self.store.state.count == 3
+            store.state.count == 3
         }
 
         XCTAssertEqual(store.state.count, 3, "Merge actions execute synchronously, cancel has no effect")
     }
 
     // Test 3: Merge combined with actual cancellable run effects
-    @MainActor
     func testMergeCombinedWithCancellableRunEffect() async throws {
+        let store: Store<MergeCancellableReducer> = Store(initial: MergeCancellableReducer.State(), reducer: MergeCancellableReducer())
+        
         store.send(.startMixedMergeAndRun)
 
         // Merge actions should execute immediately
         try await waitForStateChange(timeout: 0.5) {
-            self.store.state.count == 2
+            store.state.count == 2
         }
 
         XCTAssertEqual(store.state.count, 2, "Merge actions should execute immediately")
@@ -49,20 +47,21 @@ final class MergeCancellationTests: XCTestCase {
 
         // Wait for the run effect to complete
         try await waitForStateChange(timeout: 2.0) {
-            self.store.state.status == "Task Completed"
+            store.state.status == "Task Completed"
         }
 
         XCTAssertEqual(store.state.status, "Task Completed")
     }
 
     // Test 4: Cancel run effect while merge has already executed
-    @MainActor
     func testCancelRunEffectAfterMerge() async throws {
+        let store: Store<MergeCancellableReducer> = Store(initial: MergeCancellableReducer.State(), reducer: MergeCancellableReducer())
+        
         store.send(.startMixedMergeAndRun)
 
         // Wait for merge to execute
         try await waitForStateChange(timeout: 0.5) {
-            self.store.state.count == 2
+            store.state.count == 2
         }
 
         XCTAssertEqual(store.state.count, 2, "Merge actions executed")
@@ -77,8 +76,9 @@ final class MergeCancellationTests: XCTestCase {
     }
 
     // Test 5: Rapid merge and cancel attempts (edge case)
-    @MainActor
     func testRapidMergeAndCancelAttempts() async throws {
+        let store: Store<MergeCancellableReducer> = Store(initial: MergeCancellableReducer.State(), reducer: MergeCancellableReducer())
+        
         for _ in 0..<10 {
             store.send(.startMergeWithCancellable)
             store.send(.cancelMerge)

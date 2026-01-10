@@ -2,6 +2,7 @@ import XCTest
 import SwiftUI
 @testable import FlowKit
 
+@MainActor
 final class BindingTests: XCTestCase {
     struct AppReducer: Reducer {
         struct State: Equatable {

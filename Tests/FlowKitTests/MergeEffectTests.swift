@@ -1,6 +1,7 @@
 import XCTest
 @testable import FlowKit
 
+@MainActor
 final class MergeEffectTests: XCTestCase {
     var store: Store<MergeTestReducer> = Store(initial: MergeTestReducer.State(), reducer: MergeTestReducer())
 
@@ -9,7 +10,6 @@ final class MergeEffectTests: XCTestCase {
     }
 
     // Test 1: Merge with multiple actions executes all actions sequentially
-    @MainActor
     func testMergeMultipleActions() async throws {
         store.send(.mergeThreeIncrements)
 
@@ -24,7 +24,6 @@ final class MergeEffectTests: XCTestCase {
     }
 
     // Test 2: Merge preserves action execution order
-    @MainActor
     func testMergePreservesOrder() async throws {
         store.send(.mergeMixedActions)
 
@@ -44,7 +43,6 @@ final class MergeEffectTests: XCTestCase {
     }
 
     // Test 3: Merge with single action behaves correctly
-    @MainActor
     func testMergeSingleAction() async throws {
         store.send(.mergeSingleIncrement)
 
@@ -57,7 +55,6 @@ final class MergeEffectTests: XCTestCase {
     }
 
     // Test 4: Empty merge returns .none (no actions executed)
-    @MainActor
     func testEmptyMerge() async throws {
         let initialCount = store.state.count
 
@@ -71,7 +68,6 @@ final class MergeEffectTests: XCTestCase {
     }
 
     // Test 5: Merge with many actions (stress test)
-    @MainActor
     func testMergeManyActions() async throws {
         store.send(.mergeTenIncrements)
 
@@ -85,7 +81,6 @@ final class MergeEffectTests: XCTestCase {
     }
 
     // Test 6: Multiple merge effects in sequence
-    @MainActor
     func testMultipleMergeEffectsInSequence() async throws {
         store.send(.mergeTwoIncrements)
         store.send(.mergeTwoIncrements)
@@ -99,7 +94,6 @@ final class MergeEffectTests: XCTestCase {
     }
 
     // Test 7: Merge effect combined with regular effects
-    @MainActor
     func testMergeCombinedWithRegularEffects() async throws {
         store.send(.increment)
         store.send(.mergeTwoIncrements)
@@ -114,7 +108,6 @@ final class MergeEffectTests: XCTestCase {
     }
 
     // Test 8: Nested merge effects (merge returning more merges)
-    @MainActor
     func testNestedMergeEffects() async throws {
         store.send(.nestedMerge)
 
@@ -126,7 +119,6 @@ final class MergeEffectTests: XCTestCase {
     }
 
     // Test 9: Merge with state-dependent actions
-    @MainActor
     func testMergeWithStateDependentActions() async throws {
         store.send(.conditionalMerge(shouldIncrement: true))
 
@@ -149,7 +141,6 @@ final class MergeEffectTests: XCTestCase {
     }
 
     // Test 10: High-frequency merge dispatches
-    @MainActor
     func testHighFrequencyMergeDispatches() async throws {
         for _ in 0..<100 {
             store.send(.mergeTwoIncrements)

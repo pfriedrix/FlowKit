@@ -1,3 +1,6 @@
+
+import Foundation
+
 /// Extension of `Store` that adds persistent storage capabilities for state management.
 ///
 /// This extension allows the `Store` to automatically persist its state after each action
@@ -46,9 +49,9 @@ extension Store where State: Storable {
     /// This ensures that all state changes are immediately persisted.
     ///
     /// - Parameter action: The action to send to the reducer for processing.
+    @MainActor
     public func send(_ action: Action) {
         logger.action("\(name).\(action)")
-        
         dispatch(state, action)
     }
     
@@ -65,6 +68,7 @@ extension Store where State: Storable {
     /// - Parameters:
     ///   - state: The current state to be updated.
     ///   - action: The action to apply to the state.
+    @MainActor
     private func dispatch(_ state: State, _ action: Action) {
         let result = resolve(state, action)
         
@@ -74,6 +78,23 @@ extension Store where State: Storable {
         
         handle(result.effect)
     }
+    
+    /// Runs a task with automatic cleanup
+    func runTask(priority: TaskPriority?, operation: @escaping @Sendable (Send<Action>) async -> Void) {
+        let taskId = UUID()
+        let task = Task(priority: priority) { [weak self] in
+            await operation(Send { [weak self] action in
+                guard !Task.isCancelled else { return }
+                Task { @MainActor [weak self] in
+                    self?.send(action)
+                }
+            })
+
+            self?.tasks.removeValue(forKey: taskId)
+        }
+        tasks[taskId] = task
+    }
+    
     /// Handles the provided effect, performing any operations or additional actions it specifies.
     ///
     /// This method executes the effect's operation, which may be synchronous or asynchronous.
@@ -81,6 +102,7 @@ extension Store where State: Storable {
     /// maintaining the automatic persistence behavior of the storage-enabled store.
     ///
     /// - Parameter effect: The effect to be handled.
+    @MainActor
     private func handle(_ effect: Effect<Action>) {
         switch effect.operation {
         case .none:

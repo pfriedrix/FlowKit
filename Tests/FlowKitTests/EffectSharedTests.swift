@@ -83,6 +83,7 @@ struct InjectCounterReducer: Reducer {
         case reset
     }
 
+    @MainActor
     func reduce(into state: inout State, action: Action) -> Effect<Action> {
         switch action {
         case .increment:
@@ -118,6 +119,7 @@ struct InjectLoggerReducer: Reducer {
     }
 }
 
+@MainActor
 final class EffectSharedTests: XCTestCase {
     
     @Shared(\.manualCounterStore) var manualCounterStore

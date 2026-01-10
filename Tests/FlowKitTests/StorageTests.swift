@@ -76,7 +76,6 @@ class StorageTests: XCTestCase {
     }
     
     // Test that state is loaded from persistent storage when initializing the store
-    @MainActor
     func testStateLoading() {
         // Given
         let savedState = MockReducer.State(value: 42)
@@ -110,7 +109,6 @@ class StorageTests: XCTestCase {
     }
     
     // Test that state defaults to the provided initial state if no saved state exists
-    @MainActor
     func testStateNotLoadedIfNoSavedStateExists() {
         // Given
         let reducer = MockReducer()
@@ -251,18 +249,6 @@ class StorageTests: XCTestCase {
         struct AsyncEffectReducer: Reducer {
             struct State: Persistable, Equatable {
                 var value: Int
-                func save() {
-                    if let data = try? JSONEncoder().encode(self) {
-                        UserDefaults.standard.set(data, forKey: "AsyncEffectState")
-                    }
-                }
-                static func load() -> State? {
-                    guard let data = UserDefaults.standard.data(forKey: "AsyncEffectState"),
-                          let state = try? JSONDecoder().decode(State.self, from: data) else {
-                        return nil
-                    }
-                    return state
-                }
             }
 
             enum Action {
