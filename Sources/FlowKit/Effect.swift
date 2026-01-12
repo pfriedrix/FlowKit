@@ -1,3 +1,6 @@
+
+import Foundation
+
 /// A type that represents an effect which can trigger a side effect in a state management system.
 ///
 /// `Effect` encapsulates a state-dependent operation, allowing optional actions
@@ -124,5 +127,22 @@ public struct Send<Action>: Sendable {
     public func callAsFunction(_ action: Action) {
         guard !Task.isCancelled else { return }
         self.send(action)
+    }
+
+    /// Dispatches an action to a shared store instance.
+    ///
+    /// Use this function to send an action to a store referenced by the given key path in `StoreValues`.
+    /// This allows running effects to interact with different store instances.
+    ///
+    /// - Parameters:
+    ///   - keyPath: A key path that identifies the `Store` within `StoreValues`.
+    ///   - action: The action to be sent to the store.
+    public func callAsFunction<R: Reducer, S: Store<R>>(_ keyPath: KeyPath<StoreValues, S>, action: S.Action) {
+        guard !Task.isCancelled else { return }
+        let values = StoreValues()
+        let store = values[keyPath: keyPath]
+        Task { @MainActor in
+            store.send(action)
+        }
     }
 }

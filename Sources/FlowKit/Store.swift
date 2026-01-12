@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// A class responsible for managing the application's state and dispatching actions.
 ///
@@ -12,25 +13,28 @@ import Foundation
 /// - Parameters:
 ///   - R: The type of the reducer, which conforms to the `Reducer` protocol and defines
 ///        the state's structure and how actions are handled.
-final public class Store<R: Reducer>: ObservableObject {
-    
+@Observable
+final public class Store<R: Reducer>: @unchecked Sendable {
+
     /// The type representing the current state of the store.
     public typealias State = R.State
-    
+
     /// The type representing the actions handled by the store.
     public typealias Action = R.Action
-    
+
     /// The current state of the store.
-    public internal(set) var state: State
+    public var state: State
     
     /// The reducer responsible for handling actions and updating the state.
     let reducer: R
     
     /// Logger instance for tracking state changes and actions.
     let logger = Logger.shared
-    
+
     /// The name of the store, based on the reducer type.
-    lazy var name: String = String(describing: type(of: reducer))
+    var name: String {
+        String(describing: type(of: reducer))
+    }
     
     /// Task storage for automatic cleanup
     var tasks: [UUID: Task<Void, Never>] = [:]
@@ -76,13 +80,13 @@ final public class Store<R: Reducer>: ObservableObject {
     private func dispatch(_ state: State, _ action: Action) {
         let result = resolve(state, action)
 
-        objectWillChange.send()
         self.state = result.state
 
         handle(result.effect)
     }
     
     /// Runs a task with automatic cleanup
+    @MainActor
     func runTask(priority: TaskPriority?, operation: @escaping @Sendable (Send<Action>) async -> Void) {
         let taskId = UUID()
         let task = Task(priority: priority) { [weak self] in
@@ -93,7 +97,9 @@ final public class Store<R: Reducer>: ObservableObject {
                 }
             })
 
-            self?.tasks.removeValue(forKey: taskId)
+            Task { @MainActor [weak self] in
+                self?.tasks.removeValue(forKey: taskId)
+            }
         }
         tasks[taskId] = task
     }
@@ -138,5 +144,3 @@ final public class Store<R: Reducer>: ObservableObject {
         }
     }
 }
-
-extension Store: @unchecked Sendable { }

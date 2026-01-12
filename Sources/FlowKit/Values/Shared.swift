@@ -14,7 +14,7 @@ public struct Shared<R: Reducer, S: Store<R>>: DynamicProperty {
     let values: StoreValues
 
     /// The observed store instance. Changes to this store trigger UI updates.
-    @ObservedObject private var store: S
+    private var store: S
 
     /// The underlying store instance accessed from the shared repository.
     /// SwiftUI views use this property to reflect state changes.

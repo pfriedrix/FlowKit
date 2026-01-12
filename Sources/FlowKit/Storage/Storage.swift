@@ -72,7 +72,6 @@ extension Store where State: Storable {
     private func dispatch(_ state: State, _ action: Action) {
         let result = resolve(state, action)
         
-        objectWillChange.send()
         self.state = result.state
         self.state.save()
         

@@ -6,10 +6,10 @@ import PackageDescription
 let package = Package(
     name: "FlowKit",
     platforms: [
-        .iOS(.v16),
-        .macOS(.v13),
-        .watchOS(.v8),
-        .tvOS(.v15)
+        .iOS(.v17),
+        .macOS(.v14),
+        .watchOS(.v10),
+        .tvOS(.v17)
     ],
     products: [
         .library(
