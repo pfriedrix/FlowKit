@@ -32,11 +32,6 @@ extension Persistable {
         do {
             let data = try encoder.encode(self)
             UserDefaults.standard.set(data, forKey: Self.key)
-            
-            guard UserDefaults.standard.synchronize() else {
-                Logger.shared.error("\(Self.key): UserDefaults synchronization failed")
-                return
-            }
         } catch {
             Logger.shared.error("\(Self.key): failed to save state: \(error)")
             UserDefaults.standard.removeObject(forKey: Self.key)
