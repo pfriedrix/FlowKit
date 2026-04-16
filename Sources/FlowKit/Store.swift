@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// A class responsible for managing the application's state and dispatching actions.
 ///
@@ -37,11 +38,17 @@ final public class Store<R: Reducer>: @unchecked Sendable {
     }
     
     /// Task storage for automatic cleanup
-    var tasks: [UUID: Task<Void, Never>] = [:]
-    
+    let tasksLock = OSAllocatedUnfairLock(initialState: [UUID: Task<Void, Never>]())
+
+    var tasks: [UUID: Task<Void, Never>] {
+        tasksLock.withLock { $0 }
+    }
+
     deinit {
-        tasks.values.forEach { $0.cancel() }
-        tasks.removeAll()
+        tasksLock.withLock { tasks in
+            tasks.values.forEach { $0.cancel() }
+            tasks.removeAll()
+        }
     }
     
     /// Initializes the store with an initial state and a reducer.
@@ -86,7 +93,6 @@ final public class Store<R: Reducer>: @unchecked Sendable {
     }
     
     /// Runs a task with automatic cleanup
-    @MainActor
     func runTask(priority: TaskPriority?, operation: @escaping @Sendable (Send<Action>) async -> Void) {
         let taskId = UUID()
         let task = Task(priority: priority) { [weak self] in
@@ -97,11 +103,9 @@ final public class Store<R: Reducer>: @unchecked Sendable {
                 }
             })
 
-            Task { @MainActor [weak self] in
-                self?.tasks.removeValue(forKey: taskId)
-            }
+            self?.tasksLock.withLock { _ = $0.removeValue(forKey: taskId) }
         }
-        tasks[taskId] = task
+        tasksLock.withLock { $0[taskId] = task }
     }
     
     /// Resolves the action by applying it to the current state, and returns an effect.

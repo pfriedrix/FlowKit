@@ -79,7 +79,6 @@ extension Store where State: Storable {
     }
     
     /// Runs a task with automatic cleanup
-    @MainActor
     func runTask(priority: TaskPriority?, operation: @escaping @Sendable (Send<Action>) async -> Void) {
         let taskId = UUID()
         let task = Task(priority: priority) { [weak self] in
@@ -90,11 +89,9 @@ extension Store where State: Storable {
                 }
             })
 
-            Task { @MainActor [weak self] in
-                self?.tasks.removeValue(forKey: taskId)
-            }
+            self?.tasksLock.withLock { _ = $0.removeValue(forKey: taskId) }
         }
-        tasks[taskId] = task
+        tasksLock.withLock { $0[taskId] = task }
     }
     
     /// Handles the provided effect, performing any operations or additional actions it specifies.
