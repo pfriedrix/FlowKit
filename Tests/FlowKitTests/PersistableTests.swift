@@ -130,16 +130,19 @@ final class PersistableTests: XCTestCase {
     }
     
     /// Test that Store saves state to UserDefaults after sending an action
-    func testStoreSavesStateAfterDispatch() {
+    func testStoreSavesStateAfterDispatch() async throws {
         let initialState = TestState(value: "Initial")
         let store = Store<SampleReducer>(reducer: SampleReducer(), default: initialState)
-        
+
         // Dispatch an action to update state
         store.send(.updateValue("Updated"))
-        
+
+        // Wait for background save to complete
+        try await Task.sleep(nanoseconds: 100_000_000)
+
         // Load the saved state from UserDefaults
         let savedState = TestState.load()
-        
+
         XCTAssertEqual(savedState?.value, "Updated", "Store should save updated state to UserDefaults after sending an action.")
     }
     

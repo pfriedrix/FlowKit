@@ -61,15 +61,18 @@ class StorageTests: XCTestCase {
     
     // Test that state is saved after sending an action
     @MainActor
-    func testStateSaving() {
+    func testStateSaving() async throws {
         // Given
         let initialState = MockReducer.State(value: 0)
         let reducer = MockReducer()
-        
+
         // When
         let store = Store(reducer: reducer, default: initialState)
         store.send(.increment)
-        
+
+        // Wait for background save to complete
+        try await Task.sleep(nanoseconds: 100_000_000)
+
         // Then
         let savedState = MockReducer.State.load()
         XCTAssertEqual(savedState?.value, 1)
@@ -92,17 +95,20 @@ class StorageTests: XCTestCase {
     
     // Test that state is correctly updated and saved after multiple actions
     @MainActor
-    func testDispatchAndSave() {
+    func testDispatchAndSave() async throws {
         // Given
         let initialState = MockReducer.State(value: 0)
         let reducer = MockReducer()
-        
+
         // When
         let store = Store(reducer: reducer, default: initialState)
         store.send(.increment)  // +1
         store.send(.increment)  // +1
         store.send(.decrement)  // -1
-        
+
+        // Wait for background save to complete
+        try await Task.sleep(nanoseconds: 100_000_000)
+
         // Then
         let savedState = MockReducer.State.load()
         XCTAssertEqual(savedState?.value, 1)
@@ -124,7 +130,7 @@ class StorageTests: XCTestCase {
     }
     
     @MainActor
-    func testStateSavingAfterMultipleActions() {
+    func testStateSavingAfterMultipleActions() async throws {
         // Given
         let initialState = MockReducer.State(value: 0)
         let reducer = MockReducer()
@@ -135,13 +141,16 @@ class StorageTests: XCTestCase {
         store.send(.increment)  // +1
         store.send(.decrement)  // -1
 
+        // Wait for background save to complete
+        try await Task.sleep(nanoseconds: 100_000_000)
+
         // Then
         let savedState = MockReducer.State.load()
         XCTAssertEqual(savedState?.value, 1)  // 1 = 0 + 1 + 1 - 1
     }
 
     @MainActor
-    func testStateLoadingAndFurtherDispatch() {
+    func testStateLoadingAndFurtherDispatch() async throws {
         // Given
         let savedState = MockReducer.State(value: 10)
         savedState.save()  // Simulate a saved state
@@ -152,13 +161,16 @@ class StorageTests: XCTestCase {
         let store = Store(reducer: reducer, default: MockReducer.State(value: 0))
         store.send(.decrement)  // 10 -> 9
 
+        // Wait for background save to complete
+        try await Task.sleep(nanoseconds: 100_000_000)
+
         // Then
         let updatedState = MockReducer.State.load()
         XCTAssertEqual(updatedState?.value, 9)
     }
 
     @MainActor
-    func testEffectHandlingInReducer() {
+    func testEffectHandlingInReducer() async throws {
         struct EffectReducer: Reducer {
             struct State: Persistable, Equatable {
                 var value: Int
@@ -192,13 +204,16 @@ class StorageTests: XCTestCase {
         let store = Store(reducer: reducer, default: initialState)
         store.send(.increment)  // +1, then trigger decrement -> -1
 
+        // Wait for background save to complete
+        try await Task.sleep(nanoseconds: 100_000_000)
+
         // Then
         let savedState = EffectReducer.State.load()
         XCTAssertEqual(savedState?.value, 0)  // Final value should be 0 after both increment and decrement
     }
 
     @MainActor
-    func testNoNegativeStateValues() {
+    func testNoNegativeStateValues() async throws {
         struct NonNegativeReducer: Reducer {
             struct State: Storable, Codable, Equatable {
                 var value: Int
@@ -238,6 +253,9 @@ class StorageTests: XCTestCase {
         // When
         let store = Store(reducer: reducer, default: initialState)
         store.send(.decrement)  // Try to decrement below zero
+
+        // Wait for background save to complete
+        try await Task.sleep(nanoseconds: 100_000_000)
 
         // Then
         let savedState = NonNegativeReducer.State.load()

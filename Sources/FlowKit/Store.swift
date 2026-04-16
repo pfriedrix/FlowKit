@@ -32,11 +32,15 @@ final public class Store<R: Reducer>: @unchecked Sendable {
     /// Logger instance for tracking state changes and actions.
     let logger = Logger.shared
 
-    /// The name of the store, based on the reducer type.
+    /// The name of the store, derived from the reducer type name.
     var name: String {
-        String(describing: type(of: reducer))
+        let full = String(describing: R.self)
+        return full.components(separatedBy: ".").last ?? full
     }
     
+    /// Hook called with a state snapshot after every successful reduce; runs in a detached background task.
+    var willSave: (@Sendable (State) -> Void)? = nil
+
     /// Task storage for automatic cleanup
     let tasksLock = OSAllocatedUnfairLock(initialState: [UUID: Task<Void, Never>]())
 
@@ -88,6 +92,8 @@ final public class Store<R: Reducer>: @unchecked Sendable {
         let result = resolve(state, action)
 
         self.state = result.state
+
+        willSave?(result.state)
 
         handle(result.effect)
     }
