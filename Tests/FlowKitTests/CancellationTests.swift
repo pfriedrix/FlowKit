@@ -1,4 +1,4 @@
-@testable import FlowKit
+@_spi(Internals) @testable import FlowKit
 import XCTest
 
 final class CancellableReducer: Reducer {
@@ -180,6 +180,85 @@ final class CancellationTests: XCTestCase {
         XCTAssertEqual(store.state.data, "Task Started", "The task should not have completed after cancellation.")
     }
     
+    // Test: auto-cleanup on completion — the collection entry must not leak after a
+    // `.cancellable` task finishes naturally.
+    func testCancellableEntryRemovedAfterCompletion() async throws {
+        let taskId = "leak_\(UUID().uuidString)"
+        let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: taskId))
+
+        let baseline = await _cancellationCollection.activeTaskCount
+
+        store.send(.startCancellableTask)
+
+        // Entry should exist while the task runs.
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let midRun = await _cancellationCollection.activeTaskCount
+        XCTAssertGreaterThanOrEqual(midRun, baseline + 1, "Entry should be registered while running")
+
+        // Wait for the reducer's 1s sleep to resolve.
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+        XCTAssertEqual(store.state.data, "Task Completed")
+
+        // Give the cleanup hop a beat.
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        let after = await _cancellationCollection.activeTaskCount
+        XCTAssertEqual(after, baseline, "Entry should auto-remove after natural completion")
+    }
+
+    // Test: race fix — a cancel dispatched immediately after start must never be missed.
+    // Pre-fix: `Task { }` started before registration, so the cancel found nothing and the task
+    // ran to completion. Post-fix: `register` is a single non-suspending actor step, so the
+    // cancel always observes the new entry.
+    func testStartThenImmediateCancelNeverRuns() async throws {
+        let iterations = 50
+        var stores: [Store<CancellableReducer>] = []
+        for i in 0..<iterations {
+            let taskId = "race_\(i)_\(UUID().uuidString)"
+            let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: taskId))
+            store.send(.startCancellableTask)
+            store.send(.cancelTask)
+            stores.append(store)
+        }
+
+        // Wait longer than the reducer's 1s sleep — any task that escaped cancellation would
+        // have completed within this window and set `data` to "Task Completed".
+        try await Task.sleep(nanoseconds: 1_500_000_000)
+
+        for (i, store) in stores.enumerated() {
+            XCTAssertEqual(store.state.data, "Task Started", "Iteration \(i): cancel was missed, task ran to completion")
+        }
+    }
+
+    // Test: replacement safety — when a second `withTaskCancellation` with the same id and
+    // `cancelInFlight: true` supersedes an earlier one, the earlier task's late `removeIfCurrent`
+    // must not evict the replacement.
+    func testLateCompletionDoesNotEvictReplacement() async throws {
+        let taskId = "replace_\(UUID().uuidString)"
+        let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: taskId))
+
+        let baseline = await _cancellationCollection.activeTaskCount
+
+        store.send(.startCancellableTask)
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        // Second send with same id + cancelInFlight:true cancels and replaces the first.
+        store.send(.startCancellableTask)
+
+        // Give the cancelled first task time to run its catch + removeIfCurrent hop.
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        let duringSecond = await _cancellationCollection.activeTaskCount
+        XCTAssertEqual(duringSecond, baseline + 1, "Replacement must remain tracked after the first task's late cleanup")
+
+        // Cancel the live replacement to clean up.
+        store.send(.cancelTask)
+        try await Task.sleep(nanoseconds: 200_000_000)
+
+        let after = await _cancellationCollection.activeTaskCount
+        XCTAssertEqual(after, baseline, "Replacement should be removed after explicit cancel")
+    }
+
     // Test 6: Verify cancellation prevents task execution
     func testRaceConditionFix() async throws {
         let reducer = RaceConditionTestReducer()

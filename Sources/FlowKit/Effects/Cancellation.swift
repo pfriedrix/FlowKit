@@ -39,21 +39,19 @@ extension Effect {
     public static func withTaskCancellation(id: some Hashable & Sendable,
                                      cancelInFlight: Bool = false,
                                      operation: @escaping @Sendable () async throws -> Void) async {
-        if cancelInFlight {
-            await _cancellationCollection.cancel(withKey: id)
-        }
-        
-        let task: Task<Void, any Error> = Task {
-            do {
-                try Task.checkCancellation()
-                try await operation()
-            } catch is CancellationError {
-                Logger.shared.debug("Task \(id): cancelled")
-            } catch {
-                Logger.shared.error("Task \(id): unexpected error: \(error)")
+        _ = await _cancellationCollection.register(key: id, cancelInFlight: cancelInFlight) { nonce in
+            Task {
+                do {
+                    try Task.checkCancellation()
+                    try await operation()
+                } catch is CancellationError {
+                    Logger.shared.debug("Task \(id): cancelled")
+                } catch {
+                    Logger.shared.error("Task \(id): unexpected error: \(error)")
+                }
+                await _cancellationCollection.removeIfCurrent(key: id, nonce: nonce)
             }
         }
-        await _cancellationCollection.add(task: task, withKey: id)
     }
     
     /// Cancels an effect with the specified identifier.
