@@ -13,8 +13,7 @@ extension Effect {
     /// - Returns: An `Effect` that performs no additional work (`.none`).
     @MainActor
     public static func send<R: Reducer, S: Store<R>>(_ keyPath: KeyPath<StoreValues, S>, action: S.Action) -> Self {
-        let values = StoreValues()
-        let store = values[keyPath: keyPath]
+        let store = StoreValues._global[keyPath: keyPath]
         store.send(action)
         return .none
     }

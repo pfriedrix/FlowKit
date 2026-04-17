@@ -13,8 +13,7 @@ extension Reducer {
     public func shared<R: Reducer, S: Store<R>>(
         _ keyPath: KeyPath<StoreValues, S>
     ) -> R.State {
-        let values = StoreValues()
-        let store = values[keyPath: keyPath]
+        let store = StoreValues._global[keyPath: keyPath]
         return store.state
     }
 }
