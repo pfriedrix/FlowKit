@@ -51,8 +51,9 @@ final class SharedTests: XCTestCase {
     /// Ensures that state updates propagate correctly when an action is dispatched.
     func testSharedStateUpdate() {
         let shared = Shared(\StoreValues.dummyStore)
+        let before = shared.wrappedValue.state.value
         shared.wrappedValue.send(.increment)
-        XCTAssertEqual(shared.wrappedValue.state.value, 2, "Expected state value to be 1 after dispatching increment action")
+        XCTAssertEqual(shared.wrappedValue.state.value, before + 1, "Expected state value to increment by 1")
     }
 
     /// Ensures that multiple accesses to Shared retrieve the same store instance.

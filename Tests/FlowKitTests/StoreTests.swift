@@ -143,7 +143,7 @@ final class StoreTests: XCTestCase {
         }
 
         XCTAssertEqual(store.state.count, 2)
-        XCTAssertTrue(store.state.message == "Message 1" || store.state.message == "Message 2")
+        XCTAssertEqual(store.state.message, "Message 2")
     }
     
     // Test 1: Ensure async actions with side effects work correctly.
@@ -187,10 +187,12 @@ final class StoreTests: XCTestCase {
         store.send(.setMessage("Message 2"))
         store.send(.increment)
 
-        try await Task.sleep(nanoseconds: 5_000_000_000)
+        try await waitForStateChange(timeout: 1.0) {
+            store.state.count == 1 && store.state.message == "Message 2"
+        }
 
         XCTAssertEqual(store.state.count, 1)
-        XCTAssertTrue(store.state.message == "Message 1" || store.state.message == "Message 2")
+        XCTAssertEqual(store.state.message, "Message 2")
     }
     
     // Test 4: Ensure state updates can be rolled back if a condition is met.
@@ -271,8 +273,7 @@ final class StoreTests: XCTestCase {
         for i in 1...totalPrimaryActions {
             store.send(.increment)
 
-            // Introduce a small delay of 0.001 seconds
-            try await Task.sleep(nanoseconds: 1_000)  // 1 millisecond
+            try await Task.sleep(nanoseconds: 1_000_000)  // 1 millisecond
 
             // Occasionally interrupt with a secondary action
             if i % interruptionInterval == 0 {
