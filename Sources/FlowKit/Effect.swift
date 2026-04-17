@@ -84,17 +84,27 @@ extension Effect {
     }
 }
 
-extension Effect.Operation: Equatable {
-    /// Compares two `Effect.Operation` values for equality.
+extension Effect {
+    /// Returns `true` if this effect represents no operation.
+    public var isNone: Bool {
+        if case .none = operation { return true }
+        return false
+    }
+}
+
+extension Effect: Equatable where Action: Equatable {
+    /// Structural equality for effects whose actions are `Equatable`.
     ///
-    /// This implementation considers only the `none` case and compares the `TaskPriority`
-    /// values for `run` cases. `send` operations are considered unequal as actions can vary.
-    static func == (lhs: Effect.Operation, rhs: Effect.Operation) -> Bool {
-        switch (lhs, rhs) {
+    /// `.run` effects compare by `TaskPriority` only — the closure itself is
+    /// treated as opaque, since closures cannot be compared.
+    public static func == (lhs: Effect, rhs: Effect) -> Bool {
+        switch (lhs.operation, rhs.operation) {
         case (.none, .none):
             return true
-        case (.merge, .merge):
-            return true
+        case (.send(let a), .send(let b)):
+            return a == b
+        case (.merge(let a), .merge(let b)):
+            return a == b
         case (.run(let lhsPriority, _), .run(let rhsPriority, _)):
             return lhsPriority == rhsPriority
         default:

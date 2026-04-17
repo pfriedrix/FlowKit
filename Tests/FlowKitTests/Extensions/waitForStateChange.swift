@@ -1,19 +1,75 @@
 import XCTest
+import Observation
+import os
+
+struct WaitForStateChangeTimeout: Error {}
 
 extension XCTestCase {
-    /// Utility function to wait for a state change condition to be met within a timeout period.
+    /// Awaits until `condition` returns true. Driven primarily by `@Observable`
+    /// state changes (re-evaluates on every Observation fire), with a 100ms
+    /// polling fallback so conditions that read non-observable state (e.g. locks)
+    /// still resolve. Throws `WaitForStateChangeTimeout` if `timeout` elapses.
+    ///
     /// - Parameters:
-    ///   - timeout: The maximum time to wait for the condition to be met.
-    ///   - condition: A closure that returns `true` when the desired state change has occurred.
+    ///   - timeout: Maximum time to wait, in seconds.
+    ///   - condition: Closure evaluating state. Reads of `@Observable` state
+    ///     register subscriptions and trigger prompt re-evaluation.
     @MainActor
-    func waitForStateChange(timeout: TimeInterval, condition: @escaping () -> Bool) async throws {
-         let start = DispatchTime.now()
-         while !condition() {
-             let now = DispatchTime.now()
-             if now.uptimeNanoseconds - start.uptimeNanoseconds > UInt64(timeout * 1_000_000_000) {
-                 throw NSError(domain: "WaitForStateChangeTimeout", code: 1, userInfo: nil)
-             }
-             try await Task.sleep(nanoseconds: 50_000_000) // sleep 50ms
-         }
+    func waitForStateChange(
+        timeout: TimeInterval,
+        condition: @escaping @MainActor () -> Bool
+    ) async throws {
+        if condition() { return }
+
+        let resumed = OSAllocatedUnfairLock<Bool>(initialState: false)
+
+        try await withCheckedThrowingContinuation { (outer: CheckedContinuation<Void, any Error>) in
+            @Sendable func tryResume(_ result: Result<Void, any Error>) {
+                let alreadyResumed = resumed.withLock { flag -> Bool in
+                    let previous = flag
+                    flag = true
+                    return previous
+                }
+                if !alreadyResumed {
+                    outer.resume(with: result)
+                }
+            }
+
+            Task { @MainActor in
+                while !Task.isCancelled {
+                    if condition() {
+                        tryResume(.success(()))
+                        return
+                    }
+                    await withCheckedContinuation { (inner: CheckedContinuation<Void, Never>) in
+                        let innerResumed = OSAllocatedUnfairLock<Bool>(initialState: false)
+                        @Sendable func resumeInnerOnce() {
+                            let already = innerResumed.withLock { flag -> Bool in
+                                let prev = flag
+                                flag = true
+                                return prev
+                            }
+                            if !already { inner.resume() }
+                        }
+
+                        withObservationTracking {
+                            _ = condition()
+                        } onChange: {
+                            Task { @MainActor in resumeInnerOnce() }
+                        }
+
+                        Task {
+                            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms poll fallback
+                            resumeInnerOnce()
+                        }
+                    }
+                }
+            }
+
+            Task {
+                try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                tryResume(.failure(WaitForStateChangeTimeout()))
+            }
+        }
     }
 }

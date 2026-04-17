@@ -56,7 +56,7 @@ final class TransformTests: XCTestCase {
         }
 
         let result = effect.transform(transform)
-        XCTAssertEqual(result.operation, .none)
+        XCTAssertTrue(result.isNone)
     }
 
     func testIdentityTransformOnEffectReturnsSameEffect() {

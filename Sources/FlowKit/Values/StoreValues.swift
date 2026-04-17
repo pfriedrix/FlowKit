@@ -30,4 +30,28 @@ public struct StoreValues: Sendable {
             }
         }
     }
+
+    /// Runs `operation` with a fresh `StoreValues` instance bound to `_global`
+    /// for the duration of the call. Use this in tests to inject stubs/mocks
+    /// without leaking state across tests.
+    public static func withValues<T>(
+        _ configure: (inout StoreValues) -> Void,
+        operation: () throws -> T
+    ) rethrows -> T {
+        var values = StoreValues()
+        configure(&values)
+        return try $_global.withValue(values, operation: operation)
+    }
+
+    /// Async variant of ``withValues(_:operation:)``. Closures are `@Sendable`
+    /// because the async `operation` may suspend and resume on any executor;
+    /// use ``withValues(_:operation:)`` when you only need synchronous work.
+    public static func withValues<T: Sendable>(
+        _ configure: @Sendable (inout StoreValues) -> Void,
+        operation: @Sendable () async throws -> T
+    ) async rethrows -> T {
+        var values = StoreValues()
+        configure(&values)
+        return try await $_global.withValue(values, operation: operation)
+    }
 }
