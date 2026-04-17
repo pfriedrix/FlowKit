@@ -20,7 +20,8 @@ extension Effect {
                     await Self.withTaskCancellation(id: id, cancelInFlight: cancelInFlight) {
                         await operation(send)
                     }
-                }
+                },
+                animation: self.animation
             )
         }
     }

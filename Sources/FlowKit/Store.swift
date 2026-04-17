@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import os
+import SwiftUI
 
 /// A class responsible for managing the application's state and dispatching actions.
 ///
@@ -99,13 +100,17 @@ final public class Store<R: Reducer>: @unchecked Sendable {
     }
     
     /// Runs a task with automatic cleanup
-    func runTask(priority: TaskPriority?, operation: @escaping @Sendable (Send<Action>) async -> Void) {
+    func runTask(priority: TaskPriority?, animation: Animation? = nil, operation: @escaping @Sendable (Send<Action>) async -> Void) {
         let taskId = UUID()
         let task = Task(priority: priority) { [weak self] in
             await operation(Send { [weak self] action in
                 guard !Task.isCancelled else { return }
                 Task { @MainActor [weak self] in
-                    self?.send(action)
+                    if let animation {
+                        withAnimation(animation) { self?.send(action) }
+                    } else {
+                        self?.send(action)
+                    }
                 }
             })
 
@@ -144,13 +149,21 @@ final public class Store<R: Reducer>: @unchecked Sendable {
         switch effect.operation {
         case .none: return
         case let .send(action):
-            send(action)
-        case let .merge(actions):
-            for action in actions {
+            if let animation = effect.animation {
+                withAnimation(animation) { send(action) }
+            } else {
                 send(action)
             }
+        case let .merge(actions):
+            if let animation = effect.animation {
+                withAnimation(animation) {
+                    for action in actions { send(action) }
+                }
+            } else {
+                for action in actions { send(action) }
+            }
         case let .run(priority, operation):
-            runTask(priority: priority, operation: operation)
+            runTask(priority: priority, animation: effect.animation, operation: operation)
         }
     }
 }

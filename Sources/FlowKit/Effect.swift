@@ -1,5 +1,6 @@
 
 import Foundation
+import SwiftUI
 
 /// A type that represents an effect which can trigger a side effect in a state management system.
 ///
@@ -22,9 +23,17 @@ public struct Effect<Action: Sendable> {
         case merge([Action])
         case run(TaskPriority? = nil, @Sendable (_ send: Send<Action>) async -> Void)
     }
-    
+
     /// The operation that this effect represents.
     let operation: Operation
+
+    /// Animation applied to the state mutations this effect triggers, if any.
+    let animation: Animation?
+
+    init(operation: Operation, animation: Animation? = nil) {
+        self.operation = operation
+        self.animation = animation
+    }
 }
 
 extension Effect {
