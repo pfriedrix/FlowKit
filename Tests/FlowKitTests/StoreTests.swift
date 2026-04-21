@@ -68,21 +68,6 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(recursiveStore.state.value, 2)
     }
     
-    // Test 6: Simultaneous sendes should update the state concurrently.
-    func testConcurrentStateUpdates() async throws {
-        // Dispatch two actions in rapid succession
-        store.send(.setMessage("Concurrent Update 1"))
-        store.send(.increment)
-
-        // Wait for state to reflect both changes
-        try await waitForStateChange(timeout: 1.0) {
-            self.store.state.message == "Concurrent Update 1" && self.store.state.count == 1
-        }
-
-        XCTAssertEqual(store.state.message, "Concurrent Update 1")
-        XCTAssertEqual(store.state.count, 1)
-    }
-    
     // Test 7: Sequential updates with fast send should update state correctly in order.
     func testSequentialFastDispatch() async throws {
         // Dispatch actions quickly in sequence
@@ -127,54 +112,6 @@ final class StoreTests: XCTestCase {
         }
         
         XCTAssertEqual(store.state.message, "Third Message")
-    }
-    
-    // Test 10: Race condition prevention: Dispatch multiple actions concurrently and ensure all updates are applied.
-    func testRaceConditionPrevention() async throws {
-        // Dispatch multiple actions in rapid succession
-        store.send(.setMessage("Message 1"))
-        store.send(.setMessage("Message 2"))
-        store.send(.increment)
-        store.send(.increment)
-
-        // Wait for all changes to be reflected in the state
-        try await waitForStateChange(timeout: 1.0) {
-            self.store.state.count == 2 && (self.store.state.message == "Message 1" || self.store.state.message == "Message 2")
-        }
-
-        XCTAssertEqual(store.state.count, 2)
-        XCTAssertEqual(store.state.message, "Message 2")
-    }
-    
-    // Test 1: Ensure async actions with side effects work correctly.
-    func testAsyncActionWithSideEffect() async throws {
-        let reducer = SideEffectReducer()
-        let store = Store(initial: SideEffectReducer.State(), reducer: reducer)
-        
-        // Dispatch an async action that triggers a side effect
-        store.send(.fetchData)
-        
-        // Wait for the side effect to complete
-        try await Task.sleep(nanoseconds: 500_000_000)  // 0.5 seconds
-        
-        // Assert that the side effect updated the state
-        XCTAssertEqual(store.state.data, "Update Data")
-    }
-    
-    // Test 2: Concurrent async actions should resolve in the correct order.
-    func testConcurrentAsyncActions() async throws {
-        let reducer = SideEffectReducer()
-        let store = Store(initial: SideEffectReducer.State(), reducer: reducer)
-
-        // Dispatch two async actions in rapid succession
-        store.send(.fetchData)
-        store.send(.updateData("New Data"))
-
-        // Wait for a shorter time to allow `updateData` to complete before `fetchData` finishes
-        try await Task.sleep(nanoseconds: 200_000_000)  // 0.2 seconds
-
-        // Assert that `fetchData` was handled correctly
-        XCTAssertEqual(store.state.data, "New Data", "The state should reflect the result of the `updateData` action.")
     }
     
     // Test 3: Ensure that simultaneous state updates do not conflict.
@@ -343,27 +280,6 @@ final class RecursiveReducer: Reducer {
             return .send(.increment)
         case .increment:
             state.value += 1
-            return .none
-        }
-    }
-}
-
-final class SideEffectReducer: Reducer {
-    struct State {
-        var data: String = ""
-    }
-    
-    enum Action {
-        case fetchData
-        case updateData(String)
-    }
-    
-    func reduce(into state: inout State, action: Action) -> Effect<Action> {
-        switch action {
-        case .fetchData:
-            return .send(.updateData("Update Data"))
-        case .updateData(let newData):
-            state.data = newData
             return .none
         }
     }

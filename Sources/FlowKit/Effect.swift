@@ -16,12 +16,21 @@ public struct Effect<Action: Sendable> {
     /// - `none`: Represents the absence of an effect.
     /// - `send`: Directly sends an action.
     /// - `merge`: Sends multiple actions sequentially.
-    /// - `run`: Executes an asynchronous task...
+    /// - `run`: Executes an asynchronous task. When `cancellationId` is non-nil the
+    ///   task is registered with the store's `CancellableCollection` and can later be
+    ///   cancelled via `.cancel(id:)`.
+    /// - `cancel`: Cancels any in-flight cancellable task associated with the given id.
     enum Operation {
         case none
         case send(Action)
         case merge([Action])
-        case run(TaskPriority? = nil, @Sendable (_ send: Send<Action>) async -> Void)
+        case run(
+            priority: TaskPriority?,
+            cancellationId: AnyHashable?,
+            cancelInFlight: Bool,
+            operation: @Sendable (_ send: Send<Action>) async -> Void
+        )
+        case cancel(AnyHashable)
     }
 
     /// The operation that this effect represents.
@@ -57,7 +66,7 @@ extension Effect {
         operation: @escaping @Sendable (_ send: Send<Action>) async throws -> Void,
         catch handler: (@Sendable (_ error: Error, _ send: Send<Action>) async -> Void)? = nil
     ) -> Self {
-        Self(operation: .run(priority) { send in
+        Self(operation: .run(priority: priority, cancellationId: nil, cancelInFlight: false, operation: { send in
             do {
                 try await operation(send)
             } catch {
@@ -68,11 +77,11 @@ extension Effect {
                     #else
                     Logger.shared.error("Unhandled effect error (silent failure): \(error)")
                     #endif
-                    return  
+                    return
                 }
                 await handler(error, send)
             }
-        })
+        }))
     }
     
     /// Creates an effect that immediately sends an action.
@@ -114,8 +123,10 @@ extension Effect: Equatable where Action: Equatable {
             return a == b
         case (.merge(let a), .merge(let b)):
             return a == b
-        case (.run(let lhsPriority, _), .run(let rhsPriority, _)):
-            return lhsPriority == rhsPriority
+        case let (.run(lhsP, lhsId, lhsCancel, _), .run(rhsP, rhsId, rhsCancel, _)):
+            return lhsP == rhsP && lhsId == rhsId && lhsCancel == rhsCancel
+        case let (.cancel(lhsId), .cancel(rhsId)):
+            return lhsId == rhsId
         default:
             return false
         }

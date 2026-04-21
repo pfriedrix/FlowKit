@@ -49,11 +49,36 @@ final public class Store<R: Reducer>: @unchecked Sendable {
         tasksLock.withLock { $0 }
     }
 
+    /// Backing storage for `cancellations`. Optional so stores that never dispatch
+    /// cancellable effects avoid spawning an actor + driver task.
+    private var _cancellations: CancellableCollection<Action>?
+
+    /// Per-store cancellation registry, instantiated on first access.
+    @MainActor
+    var cancellations: CancellableCollection<Action> {
+        if let c = _cancellations { return c }
+        let c = CancellableCollection<Action> { [weak self] action, animation in
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard !Task.isCancelled, let self else { return }
+                if let animation {
+                    withAnimation(animation) { self.send(action) }
+                } else {
+                    self.send(action)
+                }
+            }
+        }
+        _cancellations = c
+        return c
+    }
+
     deinit {
         tasksLock.withLock { tasks in
             tasks.values.forEach { $0.cancel() }
             tasks.removeAll()
         }
+        // Signal the cancellation driver to exit if it was ever created.
+        _cancellations?.shutdown()
     }
     
     /// Initializes the store with an initial state and a reducer.
@@ -162,8 +187,20 @@ final public class Store<R: Reducer>: @unchecked Sendable {
             } else {
                 for action in actions { send(action) }
             }
-        case let .run(priority, operation):
-            runTask(priority: priority, animation: effect.animation, operation: operation)
+        case let .run(priority, cancellationId, cancelInFlight, operation):
+            if let id = cancellationId {
+                cancellations.enqueue(.register(
+                    id: id,
+                    cancelInFlight: cancelInFlight,
+                    priority: priority,
+                    animation: effect.animation,
+                    operation: operation
+                ))
+            } else {
+                runTask(priority: priority, animation: effect.animation, operation: operation)
+            }
+        case let .cancel(id):
+            cancellations.enqueue(.cancel(id: id))
         }
     }
 }

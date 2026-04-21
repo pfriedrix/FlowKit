@@ -46,18 +46,4 @@ final class LoggerTests: XCTestCase {
         // Then
         XCTAssertEqual(formattedAction, "Dispatching action: ArchiveReducer.scenePhase", "The abbreviated format should only show the main action prefix.")
     }
-    
-    func testLoggerActionDispatch() {
-        // Given
-        let logger = Logger.shared
-        Logger.formatStyle = .short
-        let action = "ScheduleReducer.isGranted(true)"
-        
-        // When
-        logger.action(action) // This should trigger logging
-        
-        // Since capturing console output or OSLog is complex in a unit test environment,
-        // we rely on testing whether the method runs without errors for now.
-        XCTAssertTrue(true, "Logger action dispatch called successfully.")
-    }
 }

@@ -1,99 +1,113 @@
 import Foundation
+import SwiftUI
 
-@_spi(Internals)
-public actor CancellableCollection {
-    private struct Entry {
+/// Per-`Store` cancellation registry.
+///
+/// Commands (`register`, `cancel`) are sync-enqueued into an internal `AsyncStream`
+/// and processed sequentially by a long-running driver task. This serializes all
+/// register/cancel operations through one task, eliminating the race between
+/// independent `Task { }` instances that plagued the previous design.
+///
+/// `register` and `cancel` from the same synchronous `send` chain are guaranteed to
+/// be observed by the driver in submission order — so a cancel dispatched immediately
+/// after a start always finds the freshly-registered entry.
+actor CancellableCollection<Action: Sendable> {
+    enum Command: @unchecked Sendable {
+        // Marked `@unchecked Sendable` because `AnyHashable` and SwiftUI `Animation`
+        // are not statically `Sendable`, though by API contract callers wrap values
+        // that are `Hashable & Sendable` / thread-safe animation descriptors.
+        case register(
+            id: AnyHashable,
+            cancelInFlight: Bool,
+            priority: TaskPriority?,
+            animation: Animation?,
+            operation: @Sendable (Send<Action>) async -> Void
+        )
+        case cancel(id: AnyHashable)
+    }
+
+    private struct Entry: Sendable {
         let nonce: UUID
-        let task: Task<Void, any Error>
+        let task: Task<Void, Never>
     }
 
     private var tasks: [AnyHashable: Entry] = [:]
+    private nonisolated let continuation: AsyncStream<Command>.Continuation
+    private nonisolated let sendAction: @Sendable (Action, Animation?) async -> Void
 
-    /// Atomically cancels any existing task for `key` (when `cancelInFlight` is true), constructs
-    /// a new task via `makeTask`, stores it under `key`, and returns a nonce that uniquely
-    /// identifies this registration.
-    ///
-    /// The entire body runs in a single non-suspending actor step, so no concurrent
-    /// `cancel(withKey:)` can observe the collection between the optional in-flight cancel and
-    /// the new registration.
-    public func register<Key: Hashable & Sendable>(
-        key: Key,
-        cancelInFlight: Bool,
-        makeTask: (UUID) -> Task<Void, any Error>
-    ) -> UUID {
-        let anyKey = AnyHashable(key)
-        if cancelInFlight {
-            tasks[anyKey]?.task.cancel()
-            tasks.removeValue(forKey: anyKey)
-        }
-        let nonce = UUID()
-        let task = makeTask(nonce)
-        tasks[anyKey] = Entry(nonce: nonce, task: task)
-        return nonce
-    }
-
-    /// Removes the entry for `key` only if it is still the registration identified by `nonce`.
-    /// This prevents a late-finishing task from evicting a newer registration that reused the
-    /// same `key`.
-    public func removeIfCurrent<Key: Hashable & Sendable>(key: Key, nonce: UUID) {
-        let anyKey = AnyHashable(key)
-        if tasks[anyKey]?.nonce == nonce {
-            tasks.removeValue(forKey: anyKey)
+    init(sendAction: @escaping @Sendable (Action, Animation?) async -> Void) {
+        let (stream, continuation) = AsyncStream.makeStream(of: Command.self)
+        self.continuation = continuation
+        self.sendAction = sendAction
+        Task { [weak self] in
+            await self?.process(inbox: stream)
         }
     }
 
-    /// Adds a new task to the collection with a specified key.
-    ///
-    /// This method associates the given task with the specified key in the collection.
-    /// If a task already exists with the same key, it will be replaced with the new task.
-    /// Entries added via this method are not auto-removed on completion; use `register` for
-    /// auto-cleaning registrations.
-    ///
-    /// - Parameters:
-    ///   - key: The key used to associate with the task. Must be `Hashable & Sendable`.
-    ///   - task: The `Task` instance to add to the collection.
-    public func add<Key: Hashable & Sendable>(task: Task<Void, any Error>, withKey key: Key) {
-        tasks[AnyHashable(key)] = Entry(nonce: UUID(), task: task)
+    /// Signals the driver task to finish. The caller should invoke this when the
+    /// owning scope (typically the `Store`) is tearing down. After shutdown, any
+    /// remaining registered tasks are cancelled by the driver's cleanup path.
+    nonisolated func shutdown() {
+        continuation.finish()
     }
 
-    /// Cancels and removes a task with the specified key.
-    ///
-    /// This method cancels the task associated with the given key, if it exists,
-    /// and then removes it from the collection.
-    ///
-    /// - Parameter key: The key of the task to cancel and remove.
-    public func cancel<Key: Hashable & Sendable>(withKey key: Key) {
-        let anyKey = AnyHashable(key)
-        tasks[anyKey]?.task.cancel()
-        tasks.removeValue(forKey: anyKey)
+    /// Synchronously enqueues a command. Safe to call from any isolation.
+    nonisolated func enqueue(_ command: Command) {
+        continuation.yield(command)
     }
 
-    /// Cancels and removes all tasks in the collection.
-    ///
-    /// This method cancels all active tasks stored in the collection and clears the collection.
-    public func cancelAll() {
+    var activeTaskCount: Int {
+        tasks.count
+    }
+
+    func process(inbox: AsyncStream<Command>) async {
+        for await command in inbox {
+            handle(command)
+        }
+        // Stream finished — cancel any leftover tasks.
         tasks.values.forEach { $0.task.cancel() }
         tasks.removeAll()
     }
 
-    /// Removes a task with the specified key without cancelling it.
-    ///
-    /// This method removes the task associated with the given key from the collection
-    /// without calling its `cancel()` method.
-    ///
-    /// - Parameter key: The key of the task to remove.
-    public func remove<Key: Hashable & Sendable>(withKey key: Key) {
-        tasks.removeValue(forKey: AnyHashable(key))
+    private func handle(_ command: Command) {
+        switch command {
+        case let .register(id, cancelInFlight, priority, animation, operation):
+            if cancelInFlight, let existing = tasks.removeValue(forKey: id) {
+                existing.task.cancel()
+            }
+            let nonce = UUID()
+            let sendAction = self.sendAction
+            let boxedId = UncheckedSendableBox(id)
+            let task = Task(priority: priority) { [weak self] in
+                let send = Send<Action> { action in
+                    guard !Task.isCancelled else { return }
+                    Task { await sendAction(action, animation) }
+                }
+                await withTaskCancellationHandler {
+                    await operation(send)
+                } onCancel: {}
+                await self?.removeIfCurrent(idBox: boxedId, nonce: nonce)
+            }
+            tasks[id] = Entry(nonce: nonce, task: task)
+
+        case .cancel(let id):
+            if let entry = tasks.removeValue(forKey: id) {
+                entry.task.cancel()
+            }
+        }
     }
 
-    /// Returns the current number of active tasks in the collection.
-    ///
-    /// This method provides visibility into the collection's state for monitoring purposes.
-    ///
-    /// - Returns: The number of tasks currently stored in the collection.
-    public var activeTaskCount: Int {
-        tasks.count
+    private func removeIfCurrent(idBox: UncheckedSendableBox<AnyHashable>, nonce: UUID) {
+        let id = idBox.value
+        if tasks[id]?.nonce == nonce {
+            tasks.removeValue(forKey: id)
+        }
     }
 }
 
-let _cancellationCollection = CancellableCollection()
+/// Internal wrapper to pass non-`Sendable` values across isolation boundaries when
+/// the value is known to be safely transferable by API contract.
+private struct UncheckedSendableBox<T>: @unchecked Sendable {
+    let value: T
+    init(_ value: T) { self.value = value }
+}

@@ -186,13 +186,13 @@ final class CancellationTests: XCTestCase {
         let taskId = "leak_\(UUID().uuidString)"
         let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: taskId))
 
-        let baseline = await _cancellationCollection.activeTaskCount
+        let baseline = await store.cancellations.activeTaskCount
 
         store.send(.startCancellableTask)
 
         // Entry should exist while the task runs.
         try await Task.sleep(nanoseconds: 100_000_000)
-        let midRun = await _cancellationCollection.activeTaskCount
+        let midRun = await store.cancellations.activeTaskCount
         XCTAssertGreaterThanOrEqual(midRun, baseline + 1, "Entry should be registered while running")
 
         // Wait for the reducer's 1s sleep to resolve.
@@ -202,7 +202,7 @@ final class CancellationTests: XCTestCase {
         // Give the cleanup hop a beat.
         try await Task.sleep(nanoseconds: 100_000_000)
 
-        let after = await _cancellationCollection.activeTaskCount
+        let after = await store.cancellations.activeTaskCount
         XCTAssertEqual(after, baseline, "Entry should auto-remove after natural completion")
     }
 
@@ -237,7 +237,7 @@ final class CancellationTests: XCTestCase {
         let taskId = "replace_\(UUID().uuidString)"
         let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: taskId))
 
-        let baseline = await _cancellationCollection.activeTaskCount
+        let baseline = await store.cancellations.activeTaskCount
 
         store.send(.startCancellableTask)
         try await Task.sleep(nanoseconds: 100_000_000)
@@ -248,14 +248,14 @@ final class CancellationTests: XCTestCase {
         // Give the cancelled first task time to run its catch + removeIfCurrent hop.
         try await Task.sleep(nanoseconds: 200_000_000)
 
-        let duringSecond = await _cancellationCollection.activeTaskCount
+        let duringSecond = await store.cancellations.activeTaskCount
         XCTAssertEqual(duringSecond, baseline + 1, "Replacement must remain tracked after the first task's late cleanup")
 
         // Cancel the live replacement to clean up.
         store.send(.cancelTask)
         try await Task.sleep(nanoseconds: 200_000_000)
 
-        let after = await _cancellationCollection.activeTaskCount
+        let after = await store.cancellations.activeTaskCount
         XCTAssertEqual(after, baseline, "Replacement should be removed after explicit cancel")
     }
 
