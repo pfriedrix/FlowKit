@@ -1,4 +1,4 @@
-import os
+public import os
 
 /// A shared logging system for FlowKit state management operations.
 ///

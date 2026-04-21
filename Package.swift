@@ -3,6 +3,14 @@
 import CompilerPluginSupport
 import PackageDescription
 
+let strictSettings: [SwiftSetting] = [
+    .enableUpcomingFeature("ExistentialAny"),
+    .enableUpcomingFeature("InternalImportsByDefault"),
+    .enableUpcomingFeature("MemberImportVisibility"),
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+]
+
 let package = Package(
     name: "FlowKit",
     platforms: [
@@ -24,20 +32,23 @@ let package = Package(
             name: "FlowKit",
             dependencies: [
                 "FlowMacros"
-            ]
+            ],
+            swiftSettings: strictSettings
         ),
         .testTarget(
             name: "FlowKitTests",
             dependencies: [
                 "FlowKit"
-            ]
+            ],
+            swiftSettings: strictSettings
         ),
         .macro(
             name: "FlowMacros",
             dependencies: [
                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
-            ]
+            ],
+            swiftSettings: strictSettings
         )
     ],
     swiftLanguageModes: [.v6]

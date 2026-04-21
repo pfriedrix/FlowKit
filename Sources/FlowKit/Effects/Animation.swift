@@ -1,4 +1,4 @@
-import SwiftUI
+public import SwiftUI
 
 extension Effect {
     /// Applies SwiftUI animation to all actions sent by this effect.

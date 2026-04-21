@@ -1,4 +1,4 @@
-import SwiftUI
+public import SwiftUI
 
 /// A property wrapper that provides a convenient interface for accessing a shared store instance.
 /// This wrapper observes changes in the store and automatically updates the UI accordingly,

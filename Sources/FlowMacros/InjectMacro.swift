@@ -1,7 +1,8 @@
+import Foundation
 import SwiftCompilerPlugin
-import SwiftSyntax
+public import SwiftSyntax
 import SwiftSyntaxBuilder
-import SwiftSyntaxMacros
+public import SwiftSyntaxMacros
 
 /// A composite macro that generates dependency injection code for properties in types conforming to `StoreValues`.
 ///
