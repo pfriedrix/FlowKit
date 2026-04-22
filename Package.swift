@@ -25,7 +25,7 @@ let package = Package(
             targets: ["FlowKit"])
     ],
     dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-syntax", exact: "600.0.1")
+        .package(url: "https://github.com/swiftlang/swift-syntax", exact: "603.0.1")
     ],
     targets: [
         .target(
