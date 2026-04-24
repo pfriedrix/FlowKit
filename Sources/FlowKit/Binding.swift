@@ -1,5 +1,26 @@
 public import SwiftUI
 
+// MARK: - Binding capture policy
+//
+// Getters capture `self` strongly (`[self]`). Setters capture weakly (`[weak self]`).
+//
+// Why strong in the getter:
+//   A Binding getter must return a non-optional `Value`. With `[weak self]` we'd
+//   need a fallback when `self` is gone — which has no correct answer (the old
+//   implementation used `fatalError`, which crashed SwiftUI re-renders after a
+//   Store was torn down while a Binding was still held). Capturing strongly
+//   keeps the Store alive for exactly as long as SwiftUI still holds the
+//   Binding, which is the intended lifetime.
+//
+// Why weak in the setter:
+//   Setter returns `Void`, so `guard let self else { return }` is a correct
+//   no-op when the Store is gone. A discarded Binding must not keep the Store
+//   alive via its setter closure.
+//
+// This is NOT a retain cycle: Store holds no reference back to the Binding.
+// It is a one-way strong reference from Binding → Store, bounded by the
+// Binding's own lifetime inside SwiftUI's view graph.
+
 extension Store {
     
     /// Creates a `Binding` with a custom getter and action-based setter.
