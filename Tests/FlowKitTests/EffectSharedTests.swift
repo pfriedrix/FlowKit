@@ -244,4 +244,20 @@ final class EffectSharedTests: XCTestCase {
         XCTAssertEqual(manualLoggerStore.state.logs.count, 1)
         XCTAssertEqual(injectLoggerStore.state.logs.count, 1)
     }
+
+    /// `Send.callAsFunction(keyPath:, action:)` dispatches to the store
+    /// referenced by `keyPath` in `StoreValues`, regardless of which store
+    /// owns the Send.
+    @MainActor
+    func testSendKeyPathVariant_dispatchesToCrossStore() async throws {
+        manualLoggerStore.send(.reset)
+        let send = Send<Int> { _ in }
+
+        await send(\.manualLoggerStore, action: .log("direct"))
+
+        try await waitForStateChange(timeout: 1.0) {
+            self.manualLoggerStore.state.logs == ["direct"]
+        }
+        XCTAssertEqual(manualLoggerStore.state.logs, ["direct"])
+    }
 }

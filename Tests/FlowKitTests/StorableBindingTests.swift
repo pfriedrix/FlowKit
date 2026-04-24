@@ -95,6 +95,29 @@ final class StorableBindingTests: XCTestCase {
 
     // MARK: - Test Cases
 
+    /// `binding(for:set: Action)` dispatches a fixed action regardless of the
+    /// new value the SwiftUI binding was written with, and persists the result.
+    @MainActor
+    func testDirectActionBinding_dispatchesFixedActionAndPersists() async throws {
+        let store = createStore()
+        let binding = store.binding(
+            for: \.someStateProperty,
+            set: AppReducer.Action.updateSomeState("Fixed")
+        )
+
+        XCTAssertEqual(binding.wrappedValue, "Initial State")
+
+        binding.wrappedValue = "ignored by setter"
+
+        try await waitForStateChange(timeout: 1.0) {
+            store.state.someStateProperty == "Fixed"
+        }
+        XCTAssertEqual(store.state.someStateProperty, "Fixed")
+
+        try await Task.sleep(nanoseconds: 100_000_000) // save hop
+        XCTAssertEqual(AppReducer.State.load()?.someStateProperty, "Fixed")
+    }
+
     /// Test that the state is saved after an action updates it.
     @MainActor
     func testStateIsSavedAfterUpdate() async throws {

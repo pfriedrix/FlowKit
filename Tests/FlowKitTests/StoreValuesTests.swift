@@ -57,6 +57,18 @@ final class SharedTests: XCTestCase {
         XCTAssertEqual(shared.wrappedValue.state.value, before + 1, "Expected state value to increment by 1")
     }
 
+    /// The `wrappedValue` setter swaps the wrapped store without affecting StoreValues.
+    func testSharedWrappedValueSetter_replacesLocalReference() {
+        var shared = Shared(\StoreValues.dummyStore)
+        let original = shared.wrappedValue
+        let replacement = Store(initial: DummyReducer.State(value: 999), reducer: DummyReducer())
+
+        shared.wrappedValue = replacement
+
+        XCTAssertTrue(shared.wrappedValue === replacement)
+        XCTAssertFalse(shared.wrappedValue === original)
+    }
+
     /// Ensures that multiple accesses to Shared retrieve the same store instance.
     func testSharedMultipleAccess() {
         let shared1 = Shared(\StoreValues.dummyStore)

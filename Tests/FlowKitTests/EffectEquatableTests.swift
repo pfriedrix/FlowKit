@@ -75,6 +75,18 @@ final class EffectEquatableTests: XCTestCase {
         XCTAssertNotEqual(lhs, rhs)
     }
 
+    func testCancelEqualWhenIdsMatch() {
+        let lhs: Effect<TestAction> = .cancel(id: "same")
+        let rhs: Effect<TestAction> = .cancel(id: "same")
+        XCTAssertEqual(lhs, rhs)
+    }
+
+    func testCancelUnequalWhenIdsDiffer() {
+        let lhs: Effect<TestAction> = .cancel(id: "one")
+        let rhs: Effect<TestAction> = .cancel(id: "two")
+        XCTAssertNotEqual(lhs, rhs)
+    }
+
     func testDifferentCasesAreUnequal() {
         let none: Effect<TestAction> = .none
         let send: Effect<TestAction> = .send(.a)
