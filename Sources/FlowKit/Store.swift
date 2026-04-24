@@ -183,11 +183,13 @@ final public class Store<R: Reducer> {
 
     /// Cancels the cancellable effect registered under `id`, if any.
     /// O(n) in the size of `tasks`; fine for UDF workloads.
+    /// Logs on miss so typo'd ids and stale cancels don't silently no-op.
     private func cancel(id: AnyHashable) {
         for (key, entry) in tasks where entry.id == id {
             tasks.removeValue(forKey: key)
             entry.task.cancel()
             return
         }
+        logger.info("\(self.name): cancel miss for id \(String(describing: id))")
     }
 }
