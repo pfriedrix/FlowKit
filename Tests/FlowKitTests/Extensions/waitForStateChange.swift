@@ -22,6 +22,9 @@ extension XCTestCase {
         if condition() { return }
 
         let resumed = OSAllocatedUnfairLock<Bool>(initialState: false)
+        let tasks = OSAllocatedUnfairLock<(waiter: Task<Void, Never>?, timeout: Task<Void, Never>?)>(
+            initialState: (nil, nil)
+        )
 
         try await withCheckedThrowingContinuation { (outer: CheckedContinuation<Void, any Error>) in
             @Sendable func tryResume(_ result: Result<Void, any Error>) {
@@ -30,12 +33,14 @@ extension XCTestCase {
                     flag = true
                     return previous
                 }
-                if !alreadyResumed {
-                    outer.resume(with: result)
-                }
+                guard !alreadyResumed else { return }
+                let (waiter, timeoutTask) = tasks.withLock { $0 }
+                waiter?.cancel()
+                timeoutTask?.cancel()
+                outer.resume(with: result)
             }
 
-            Task { @MainActor in
+            let waiter = Task { @MainActor in
                 while !Task.isCancelled {
                     if condition() {
                         tryResume(.success(()))
@@ -58,18 +63,24 @@ extension XCTestCase {
                             Task { @MainActor in resumeInnerOnce() }
                         }
 
+                        // 100ms poll fallback — also the max delay after cancellation
+                        // before the loop observes `Task.isCancelled` and exits, since
+                        // `withCheckedContinuation` ignores cancellation.
                         Task {
-                            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms poll fallback
+                            try? await Task.sleep(nanoseconds: 100_000_000)
                             resumeInnerOnce()
                         }
                     }
                 }
             }
 
-            Task {
+            let timeoutTask = Task {
                 try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                guard !Task.isCancelled else { return }
                 tryResume(.failure(WaitForStateChangeTimeout()))
             }
+
+            tasks.withLock { $0 = (waiter, timeoutTask) }
         }
     }
 }
