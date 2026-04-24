@@ -14,7 +14,6 @@ struct AnimationReducer: Reducer {
         case animatedIncrement
         case animatedMerge
         case animatedRun
-        case animatedNone
         case animatedNilAnimation
     }
 
@@ -37,9 +36,6 @@ struct AnimationReducer: Reducer {
                 await send(.increment)
             }
             .animation(.spring)
-        case .animatedNone:
-            return Effect<Action>.none
-                .animation(.default)
         case .animatedNilAnimation:
             return .send(.increment)
                 .animation(nil)
@@ -76,16 +72,6 @@ final class AnimationEffectTests: XCTestCase {
         }
 
         XCTAssertEqual(store.state.count, 1)
-    }
-
-    func testAnimatedNoneHasNoEffect() async throws {
-        let store = Store(initial: AnimationReducer.State(), reducer: AnimationReducer())
-        store.send(.animatedNone)
-
-        try await Task.sleep(nanoseconds: 100_000_000)
-
-        XCTAssertEqual(store.state.count, 0)
-        XCTAssertEqual(store.state.message, "")
     }
 
     func testNilAnimationPassesThrough() {

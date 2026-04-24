@@ -264,46 +264,53 @@ class StorageTests: XCTestCase {
     }
 
     @MainActor
-    func testAsyncEffectHandling() async throws {
-        struct AsyncEffectReducer: Reducer {
-            struct State: Persistable, Equatable {
-                var value: Int
-            }
-
-            enum Action {
-                case increment
-                case delayedIncrement
-            }
-
-            func reduce(into state: inout State, action: Action) -> Effect<Action> {
-                switch action {
-                case .increment:
-                    state.value += 1
-                    return .run(priority: .medium) { send in
-                        try await Task.sleep(nanoseconds: 1_000_000_000) // Simulate 1-second delay
-                        await send(.delayedIncrement)
-                    }
-                case .delayedIncrement:
-                    state.value += 1
-                    return .none
-                }
-            }
-        }
-        
-        // Given
-        let initialState = AsyncEffectReducer.State(value: 0)
-        let reducer = AsyncEffectReducer()
-
-        // When
-        let store = Store(reducer: reducer, default: initialState)
+    func testAsyncEffectHandling_updatesInMemoryState() async throws {
+        let store = Store(reducer: AsyncEffectReducer(), default: .init(value: 0))
         store.send(.increment)
 
-        // Wait for 2 seconds to allow the async effect to complete
-        try await Task.sleep(nanoseconds: 2_000_000_000)
+        try await waitForStateChange(timeout: 2.0) {
+            store.state.value == 2
+        }
 
-        // Then
-        let savedState = AsyncEffectReducer.State.load()
-        XCTAssertEqual(savedState?.value, 2)  // 1 from increment + 1 from delayedIncrement
-        XCTAssertEqual(store.state.value, 2)  // 1 from increment + 1 from delayedIncrement
+        XCTAssertEqual(store.state.value, 2)
+    }
+
+    @MainActor
+    func testAsyncEffectHandling_persistsFinalState() async throws {
+        let store = Store(reducer: AsyncEffectReducer(), default: .init(value: 0))
+        store.send(.increment)
+
+        try await waitForStateChange(timeout: 2.0) {
+            store.state.value == 2
+        }
+        // willSave fires on a background queue; give it one more tick.
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(AsyncEffectReducer.State.load()?.value, 2)
+    }
+}
+
+private struct AsyncEffectReducer: Reducer {
+    struct State: Persistable, Equatable {
+        var value: Int
+    }
+
+    enum Action {
+        case increment
+        case delayedIncrement
+    }
+
+    func reduce(into state: inout State, action: Action) -> Effect<Action> {
+        switch action {
+        case .increment:
+            state.value += 1
+            return .run(priority: .medium) { send in
+                try await Task.sleep(nanoseconds: 500_000_000)
+                await send(.delayedIncrement)
+            }
+        case .delayedIncrement:
+            state.value += 1
+            return .none
+        }
     }
 }

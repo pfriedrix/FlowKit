@@ -191,32 +191,47 @@ final class StorableBindingTests: XCTestCase {
     
     // MARK: - Custom Getter Binding Tests for Storable State
     
-    /// Test custom getter binding saves state correctly
+    /// Setting via a custom-getter binding dispatches the inverse-transformed action and persists it.
     @MainActor
-    func testCustomGetterBindingSavesState() async throws {
+    func testCustomGetterBinding_persistsInverseTransformedValue() async throws {
         let store = createStore()
-        let multiplier = 2
-        
-        // Create a custom getter binding that transforms the value using state-aware version
+
         let binding = store.binding(
-            get: { state in state.anotherStateProperty * multiplier },
+            get: { state in state.anotherStateProperty * 2 },
             set: { newValue in
-                AppReducer.Action.updateAnotherState(newValue / multiplier)
+                AppReducer.Action.updateAnotherState(newValue / 2)
             }
         )
-        
-        // Update through the binding
+
         binding.wrappedValue = 100
-        
-        // Wait for the state to be updated and saved
-        try await Task.sleep(nanoseconds: 100_000_000)
-        
-        // Verify the state was saved correctly
-        let savedState = AppReducer.State.load()
-        XCTAssertEqual(savedState?.anotherStateProperty, 50, "The state should be saved with the correct value (100 / 2 = 50).")
-        
-        // Verify the binding still works correctly
-        XCTAssertEqual(binding.wrappedValue, 100, "The binding should return the transformed value (50 * 2 = 100).")
+
+        try await waitForStateChange(timeout: 1.0) {
+            store.state.anotherStateProperty == 50
+        }
+        try await Task.sleep(nanoseconds: 100_000_000) // save hop
+
+        XCTAssertEqual(AppReducer.State.load()?.anotherStateProperty, 50)
+    }
+
+    /// The getter re-derives from current state, returning the forward-transformed value.
+    @MainActor
+    func testCustomGetterBinding_getterReflectsTransformedState() async throws {
+        let store = createStore()
+
+        let binding = store.binding(
+            get: { state in state.anotherStateProperty * 2 },
+            set: { newValue in
+                AppReducer.Action.updateAnotherState(newValue / 2)
+            }
+        )
+
+        binding.wrappedValue = 100
+
+        try await waitForStateChange(timeout: 1.0) {
+            store.state.anotherStateProperty == 50
+        }
+
+        XCTAssertEqual(binding.wrappedValue, 100)
     }
     
     /// Test state-aware custom getter binding with complex conditions

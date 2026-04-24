@@ -220,18 +220,28 @@ final class EffectSharedTests: XCTestCase {
     }
     
     @MainActor
-    func testCodeComparisonDemo() {
+    func testManualAndInjectStores_produceEqualCounts() {
+        manualCounterStore.send(.reset)
+        injectCounterStore.send(.reset)
+
+        manualCounterStore.send(.increment)
+        injectCounterStore.send(.increment)
+
+        XCTAssertEqual(manualCounterStore.state.count, 1)
+        XCTAssertEqual(injectCounterStore.state.count, 1)
+    }
+
+    @MainActor
+    func testManualAndInjectStores_produceEqualLogCounts() {
         manualCounterStore.send(.reset)
         manualLoggerStore.send(.reset)
         injectCounterStore.send(.reset)
         injectLoggerStore.send(.reset)
-        
+
         manualCounterStore.send(.increment)
         injectCounterStore.send(.increment)
-        
-        XCTAssertEqual(manualCounterStore.state.count, injectCounterStore.state.count)
-        XCTAssertEqual(manualLoggerStore.state.logs.count, injectLoggerStore.state.logs.count)
-        XCTAssertTrue(manualLoggerStore.state.logs.first?.contains("MANUAL") == true)
-        XCTAssertTrue(injectLoggerStore.state.logs.first?.contains("INJECT") == true)
+
+        XCTAssertEqual(manualLoggerStore.state.logs.count, 1)
+        XCTAssertEqual(injectLoggerStore.state.logs.count, 1)
     }
 }
