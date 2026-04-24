@@ -95,7 +95,7 @@ public struct InjectMacro: PeerMacro, AccessorMacro {
         let key = "__Store_\(propertyName)"
         let storeKeyStructSource = """
     fileprivate struct \(key): StoreKey {
-        static let defaultValue: \(storeTypeString) = \(initializerExpr)
+        @MainActor static let defaultValue: \(storeTypeString) = \(initializerExpr)
     }
     """
         

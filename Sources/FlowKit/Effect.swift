@@ -167,10 +167,10 @@ public struct Send<Action>: Sendable {
     /// - Parameters:
     ///   - keyPath: A key path that identifies the `Store` within `StoreValues`.
     ///   - action: The action to be sent to the store.
-    public func callAsFunction<R: Reducer, S: Store<R>>(_ keyPath: KeyPath<StoreValues, S>, action: S.Action) {
+    public func callAsFunction<R: Reducer, S: Store<R>>(_ keyPath: sending KeyPath<StoreValues, S>, action: S.Action) {
         guard !Task.isCancelled else { return }
-        let store = StoreValues._global[keyPath: keyPath]
         Task { @MainActor in
+            let store = StoreValues._global[keyPath: keyPath]
             store.send(action)
         }
     }

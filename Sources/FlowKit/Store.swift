@@ -12,11 +12,16 @@ import SwiftUI
 /// This class also handles asynchronous state updates and supports side effects through the
 /// reducer's `Effect` mechanism.
 ///
+/// All mutation is MainActor-isolated: state, the reducer, and the effect registry live on
+/// MainActor. Only the user's `async` effect body runs off-actor; follow-up actions hop
+/// back via `Send` for dispatch.
+///
 /// - Parameters:
 ///   - R: The type of the reducer, which conforms to the `Reducer` protocol and defines
 ///        the state's structure and how actions are handled.
+@MainActor
 @Observable
-final public class Store<R: Reducer>: @unchecked Sendable {
+final public class Store<R: Reducer> {
 
     /// The type representing the current state of the store.
     public typealias State = R.State
@@ -26,62 +31,44 @@ final public class Store<R: Reducer>: @unchecked Sendable {
 
     /// The current state of the store.
     public var state: State
-    
+
     /// The reducer responsible for handling actions and updating the state.
     let reducer: R
-    
+
     /// Logger instance for tracking state changes and actions.
     let logger = Logger.shared
 
     /// The name of the store, derived from the reducer type name.
-    var name: String {
+    nonisolated var name: String {
         let full = String(describing: R.self)
         return full.components(separatedBy: ".").last ?? full
     }
-    
+
     /// Hook called with a state snapshot after every successful reduce; runs in a detached background task.
     var willSave: (@Sendable (State) -> Void)? = nil
 
-    /// Task storage for automatic cleanup
-    let tasksLock = OSAllocatedUnfairLock(initialState: [UUID: Task<Void, Never>]())
-
-    var tasks: [UUID: Task<Void, Never>] {
-        tasksLock.withLock { $0 }
+    /// Every in-flight `.run` effect — cancellable or not. Keyed by a fresh
+    /// `UUID` so the detached task can capture a `Sendable` key for its
+    /// self-removal hop. `id` is the user-supplied cancellation id, if any;
+    /// `.cancel(id:)` and `cancelInFlight` scan values by `id`.
+    struct RunningEffect {
+        let id: AnyHashable?
+        let task: Task<Void, Never>
     }
 
-    /// Backing storage for `cancellations`. Optional so stores that never dispatch
-    /// cancellable effects avoid spawning an actor + driver task.
-    private var _cancellations: CancellableCollection<Action>?
-
-    /// Per-store cancellation registry, instantiated on first access.
-    @MainActor
-    var cancellations: CancellableCollection<Action> {
-        if let c = _cancellations { return c }
-        let c = CancellableCollection<Action> { [weak self] action, animation in
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard !Task.isCancelled, let self else { return }
-                if let animation {
-                    withAnimation(animation) { self.send(action) }
-                } else {
-                    self.send(action)
-                }
-            }
-        }
-        _cancellations = c
-        return c
-    }
+    var tasks: [UUID: RunningEffect] = [:]
 
     deinit {
-        tasksLock.withLock { tasks in
-            tasks.values.forEach { $0.cancel() }
-            tasks.removeAll()
-        }
-        // Signal the cancellation driver to exit if it was ever created.
-        _cancellations?.shutdown()
+        // Tasks hold `[weak self]`, so any outstanding work becomes a no-op once
+        // the store is gone. Explicit cancellation would require `isolated deinit`
+        // (SE-0371), which isn't enabled here; we trade eager cancel for simpler
+        // teardown since un-cancellable work finishes on its own.
     }
-    
+
     /// Initializes the store with an initial state and a reducer.
+    ///
+    /// MainActor-isolated: every `StoreKey.defaultValue` that constructs a store
+    /// must be declared `@MainActor` (the `@Inject` macro emits this by default).
     ///
     /// - Parameters:
     ///   - initial: The initial state of the store.
@@ -91,88 +78,43 @@ final public class Store<R: Reducer>: @unchecked Sendable {
         self.reducer = reducer
         logger.info("\(name): store initialized")
     }
-    
+
     /// Sends an action to the store, triggering a state update.
     ///
     /// This method processes the action through the reducer, applies any state updates,
     /// and triggers associated effects, which may include additional actions or asynchronous operations.
     ///
     /// - Parameter action: The action to send to the reducer for processing.
-    @MainActor
     public func send(_ action: Action) {
         logger.action("\(name).\(action)")
         dispatch(state, action)
     }
 
-    /// Handles the dispatching of actions and state updates asynchronously.
+    /// Handles the dispatching of actions and state updates.
     ///
-    /// This method invokes the reducer to process the action and returns an effect. If the effect
-    /// includes a new action, the method recursively dispatches the action until no further actions
-    /// are returned.
-    ///
-    /// - Parameters:
-    ///   - state: The current state before the action is applied.
-    ///   - action: The action to process and apply to the state.
-    @MainActor
+    /// Invokes the reducer, commits the new state, fires the save hook, and handles the effect.
     private func dispatch(_ state: State, _ action: Action) {
         let result = resolve(state, action)
-
         self.state = result.state
-
         willSave?(result.state)
-
         handle(result.effect)
     }
-    
-    /// Runs a task with automatic cleanup
-    func runTask(priority: TaskPriority?, animation: Animation? = nil, operation: @escaping @Sendable (Send<Action>) async -> Void) {
-        let taskId = UUID()
-        let task = Task(priority: priority) { [weak self] in
-            await operation(Send { [weak self] action in
-                guard !Task.isCancelled else { return }
-                Task { @MainActor [weak self] in
-                    if let animation {
-                        withAnimation(animation) { self?.send(action) }
-                    } else {
-                        self?.send(action)
-                    }
-                }
-            })
 
-            self?.tasksLock.withLock { _ = $0.removeValue(forKey: taskId) }
-        }
-        tasksLock.withLock { $0[taskId] = task }
-    }
-    
     /// Resolves the action by applying it to the current state, and returns an effect.
-    ///
-    /// This method uses the reducer to process the action, updating the state and generating
-    /// an effect if necessary. The new state and effect are returned to be handled asynchronously.
-    ///
-    /// - Parameters:
-    ///   - state: The state to update.
-    ///   - action: The action applied to update the state.
-    /// - Returns: An effect that may trigger further actions or operations.
-    @MainActor
     func resolve(_ state: State, _ action: Action) -> Resolution<State, Action> {
         var currentState = state
         let effect = reducer.reduce(into: &currentState, action: action)
-        
         logger.info("\(name): resolve `\(action)`: \(currentState)")
-        
         return Resolution(state: currentState, effect: effect)
     }
-    
-    /// Handles the provided effect, performing any operations or additional actions it specifies.
-    ///
-    /// This method executes the effect's operation, which may be synchronous or asynchronous.
-    /// Asynchronous operations are scheduled with a task to ensure proper execution.
-    ///
-    /// - Parameter effect: The effect to be handled.
-    @MainActor
+
+    /// Handles the provided effect. `.send`/`.merge` dispatch synchronously; `.run`
+    /// spawns a detached Task via `runEffect`; `.cancel` looks up and cancels an
+    /// entry in the registry.
     private func handle(_ effect: Effect<Action>) {
         switch effect.operation {
-        case .none: return
+        case .none:
+            return
         case let .send(action):
             if let animation = effect.animation {
                 withAnimation(animation) { send(action) }
@@ -188,19 +130,68 @@ final public class Store<R: Reducer>: @unchecked Sendable {
                 for action in actions { send(action) }
             }
         case let .run(priority, cancellationId, cancelInFlight, operation):
-            if let id = cancellationId {
-                cancellations.enqueue(.register(
-                    id: id,
-                    cancelInFlight: cancelInFlight,
-                    priority: priority,
-                    animation: effect.animation,
-                    operation: operation
-                ))
-            } else {
-                runTask(priority: priority, animation: effect.animation, operation: operation)
-            }
+            runEffect(
+                id: cancellationId,
+                cancelInFlight: cancelInFlight,
+                priority: priority,
+                animation: effect.animation,
+                operation: operation
+            )
         case let .cancel(id):
-            cancellations.enqueue(.cancel(id: id))
+            cancel(id: id)
+        }
+    }
+
+    /// The single entry point for every `.run` effect, cancellable or not.
+    ///
+    /// Registration and cancel-in-flight are synchronous on MainActor, so a `.cancel(id:)`
+    /// dispatched in the same `send` chain always observes a freshly-registered entry.
+    /// The user's async `operation` runs detached; completion hops back to MainActor
+    /// to remove the entry from `tasks`.
+    private func runEffect(
+        id: AnyHashable?,
+        cancelInFlight: Bool,
+        priority: TaskPriority?,
+        animation: Animation?,
+        operation: @escaping @Sendable (Send<Action>) async -> Void
+    ) {
+        if let id, cancelInFlight { cancel(id: id) }
+
+        let key = UUID()
+
+        let send = Send<Action> { [weak self] action in
+            guard !Task.isCancelled else { return }
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if let animation {
+                    withAnimation(animation) { self.send(action) }
+                } else {
+                    self.send(action)
+                }
+            }
+        }
+
+        let task = Task.detached(priority: priority) { [weak self] in
+            await operation(send)
+            await self?.finish(key: key)
+        }
+
+        tasks[key] = RunningEffect(id: id, task: task)
+    }
+
+    /// Called from the detached task when `operation` returns. No-op if the
+    /// entry was already pulled by `.cancel(id:)` / `cancelInFlight`.
+    private func finish(key: UUID) {
+        tasks.removeValue(forKey: key)
+    }
+
+    /// Cancels the cancellable effect registered under `id`, if any.
+    /// O(n) in the size of `tasks`; fine for UDF workloads.
+    private func cancel(id: AnyHashable) {
+        for (key, entry) in tasks where entry.id == id {
+            tasks.removeValue(forKey: key)
+            entry.task.cancel()
+            return
         }
     }
 }

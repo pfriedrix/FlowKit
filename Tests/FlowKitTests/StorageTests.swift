@@ -1,6 +1,7 @@
 import XCTest
 @testable import FlowKit
 
+@MainActor
 class StorageTests: XCTestCase {
     
     struct MockReducer: Reducer {
@@ -41,18 +42,18 @@ class StorageTests: XCTestCase {
     }
     
     // This runs before each test to ensure a clean slate.
-    override func setUp() {
+    nonisolated override func setUp() {
         super.setUp()
         clearUserDefaults()
     }
-    
+
     // This runs after each test to clean up the state.
-    override func tearDown() {
+    nonisolated override func tearDown() {
         clearUserDefaults()
         super.tearDown()
     }
-    
-    private func clearUserDefaults() {
+
+    nonisolated private func clearUserDefaults() {
         if let appDomain = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: appDomain)
         }

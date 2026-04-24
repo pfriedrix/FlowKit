@@ -23,10 +23,11 @@ struct DummyReducer: Reducer {
 
 /// StoreKey for DummyStore.
 struct DummyStoreKey: StoreKey {
-    static let defaultValue: Store<DummyReducer> = .init(initial: .init(), reducer: .init())
+    @MainActor static let defaultValue: Store<DummyReducer> = .init(initial: .init(), reducer: .init())
 }
 
 /// Extending StoreValues to provide a computed property like in EnvironmentValues
+@MainActor
 extension StoreValues {
     var dummyStore: Store<DummyReducer> {
         get { self[DummyStoreKey.self] }

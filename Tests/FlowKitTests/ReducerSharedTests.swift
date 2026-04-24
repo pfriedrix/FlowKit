@@ -51,7 +51,7 @@ struct DependentReducer: Reducer {
 
 /// StoreKey for CounterStore
 struct CounterStoreKey: StoreKey {
-    static let defaultValue: Store<CounterReducer> = .init(
+    @MainActor static let defaultValue: Store<CounterReducer> = .init(
         initial: .init(),
         reducer: .init()
     )
@@ -59,7 +59,7 @@ struct CounterStoreKey: StoreKey {
 
 /// StoreKey for DependentStore
 struct DependentStoreKey: StoreKey {
-    static let defaultValue: Store<DependentReducer> = .init(
+    @MainActor static let defaultValue: Store<DependentReducer> = .init(
         initial: .init(),
         reducer: .init()
     )
@@ -67,11 +67,13 @@ struct DependentStoreKey: StoreKey {
 
 /// Extending StoreValues to provide computed properties
 extension StoreValues {
+    @MainActor
     var counterStore: Store<CounterReducer> {
         get { self[CounterStoreKey.self] }
         set { self[CounterStoreKey.self] = newValue }
     }
 
+    @MainActor
     var dependentStore: Store<DependentReducer> {
         get { self[DependentStoreKey.self] }
         set { self[DependentStoreKey.self] = newValue }

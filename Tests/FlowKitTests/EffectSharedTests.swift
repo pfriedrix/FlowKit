@@ -2,26 +2,27 @@ import XCTest
 import SwiftUI
 @testable import FlowKit
 
+@MainActor
 extension StoreValues {
-    
+
     struct ManualCounterStoreKey: StoreKey {
         static let defaultValue = Store(initial: ManualCounterReducer.State(), reducer: ManualCounterReducer())
     }
-    
+
     struct ManualLoggerStoreKey: StoreKey {
         static let defaultValue = Store(initial: ManualLoggerReducer.State(), reducer: ManualLoggerReducer())
     }
-    
+
     var manualCounterStore: Store<ManualCounterReducer> {
         get { self[ManualCounterStoreKey.self] }
         set { self[ManualCounterStoreKey.self] = newValue }
     }
-    
+
     var manualLoggerStore: Store<ManualLoggerReducer> {
         get { self[ManualLoggerStoreKey.self] }
         set { self[ManualLoggerStoreKey.self] = newValue }
     }
-    
+
     @Inject var injectCounterStore: Store<InjectCounterReducer> = Store(initial: InjectCounterReducer.State(), reducer: InjectCounterReducer())
     @Inject var injectLoggerStore: Store<InjectLoggerReducer> = Store(initial: InjectLoggerReducer.State(), reducer: InjectLoggerReducer())
 }

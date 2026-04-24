@@ -14,7 +14,7 @@ final class StoreValuesWithValuesTests: XCTestCase {
     }
 
     struct CountStoreKey: StoreKey {
-        static let defaultValue: Store<CountReducer> = .init(
+        @MainActor static let defaultValue: Store<CountReducer> = .init(
             initial: .init(),
             reducer: .init()
         )

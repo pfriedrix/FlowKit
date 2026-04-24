@@ -3,11 +3,15 @@
 /// This protocol works similarly to SwiftUI's EnvironmentKey. Conforming types specify an associated
 /// store value type and a default value for that key.
 ///
+/// `defaultValue` is MainActor-isolated because `Store<R>` itself is MainActor-isolated,
+/// and the default value for a store key is typically `Store(initial:reducer:)` — whose
+/// initializer runs on MainActor.
+///
 /// - Note: The associated type `Value` defaults to `Self`.
 public protocol StoreKey: Sendable {
     /// The type of the store value associated with this key.
     associatedtype Value: Sendable = Self
-    
+
     /// The default value for the store key.
-    static var defaultValue: Self.Value { get }
+    @MainActor static var defaultValue: Self.Value { get }
 }

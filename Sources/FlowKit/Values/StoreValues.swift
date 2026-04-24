@@ -18,11 +18,13 @@ public struct StoreValues: Sendable {
     ///
     /// - Parameter key: The type of the key conforming to `StoreKey` used to identify the store value.
     /// - Returns: The store value corresponding to the provided key.
+    @MainActor
     public subscript<Key: StoreKey>(key: Key.Type) -> Key.Value {
         get {
-            storage.withLock { storage in
-                storage[ObjectIdentifier(key)] as? Key.Value ?? Key.defaultValue
+            if let stored = storage.withLock({ $0[ObjectIdentifier(key)] }) as? Key.Value {
+                return stored
             }
+            return Key.defaultValue
         }
         set {
             storage.withLock { storage in
@@ -34,6 +36,7 @@ public struct StoreValues: Sendable {
     /// Runs `operation` with a fresh `StoreValues` instance bound to `_global`
     /// for the duration of the call. Use this in tests to inject stubs/mocks
     /// without leaking state across tests.
+    @MainActor
     public static func withValues<T>(
         _ configure: (inout StoreValues) -> Void,
         operation: () throws -> T
@@ -43,11 +46,12 @@ public struct StoreValues: Sendable {
         return try $_global.withValue(values, operation: operation)
     }
 
-    /// Async variant of ``withValues(_:operation:)``. Closures are `@Sendable`
-    /// because the async `operation` may suspend and resume on any executor;
-    /// use ``withValues(_:operation:)`` when you only need synchronous work.
+    /// Async variant of ``withValues(_:operation:)``. Both closures run from
+    /// MainActor (this function is `@MainActor`-isolated). `operation` is
+    /// `@Sendable` because it may suspend and resume on any executor.
+    @MainActor
     public static func withValues<T: Sendable>(
-        _ configure: @Sendable (inout StoreValues) -> Void,
+        _ configure: (inout StoreValues) -> Void,
         operation: @Sendable () async throws -> T
     ) async rethrows -> T {
         var values = StoreValues()
