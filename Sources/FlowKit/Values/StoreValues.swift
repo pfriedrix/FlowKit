@@ -1,5 +1,3 @@
-import os
-
 /// A collection of store values that are globally accessible.
 ///
 /// This structure manages a collection of store instances that can be retrieved using a key conforming to the StoreKey protocol. If a store is not found for a given key, its default value is returned.
@@ -8,10 +6,12 @@ import os
 public struct StoreValues: Sendable {
     /// A task-local global instance of StoreValues.
     @TaskLocal static var _global = Self()
-    
+
     /// Internal storage for the store values, keyed by ObjectIdentifier.
-    private var storage: OSAllocatedUnfairLock<[ObjectIdentifier: any Sendable]> = .init(initialState: [:])
-    
+    /// Access is serialized by MainActor isolation on the subscript and
+    /// `withValues`, so no lock is needed.
+    private var storage: [ObjectIdentifier: any Sendable] = [:]
+
     /// Retrieves or sets the store value for the specified key.
     ///
     /// If no store has been set for the given key, the default value defined by the key is returned.
@@ -21,15 +21,13 @@ public struct StoreValues: Sendable {
     @MainActor
     public subscript<Key: StoreKey>(key: Key.Type) -> Key.Value {
         get {
-            if let stored = storage.withLock({ $0[ObjectIdentifier(key)] }) as? Key.Value {
+            if let stored = storage[ObjectIdentifier(key)] as? Key.Value {
                 return stored
             }
             return Key.defaultValue
         }
         set {
-            storage.withLock { storage in
-                storage[ObjectIdentifier(key)] = newValue
-            }
+            storage[ObjectIdentifier(key)] = newValue
         }
     }
 
