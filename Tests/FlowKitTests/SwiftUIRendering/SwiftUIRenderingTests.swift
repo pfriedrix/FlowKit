@@ -12,26 +12,23 @@ import Testing
 // rendering pipeline. These guard against regressions in the Store / @Observable /
 // @Shared wiring that would not be caught by Observation-framework-level tests.
 //
-// We assert only "view eventually observes the expected state" — never exact render
+// Positive invariants asserted: body re-runs after mutation; body sees fresh state
+// on mount; multiple @Shared handles observe shared mutations; @Shared resolves to
+// identical Store; dispatch from inside a view (onAppear) completes the round trip.
+//
+// Negative invariants asserted: body does NOT re-run when nothing mutates; one
+// Store's mutation does NOT re-render a view bound to a different Store.
+//
+// Assertions are "view eventually observes expected state" — never exact render
 // counts — because SwiftUI coalesces transactions nondeterministically.
 //
 // `.serialized` is required: Swift Testing runs @Tests in parallel by default, and
-// these tests share the process-wide singleton `\StoreValues.counterStore`.
-
-@MainActor
-private final class RenderProbe {
-    private(set) var bodyCount = 0
-    private(set) var lastCount: Int? = nil
-
-    func record(_ count: Int) {
-        bodyCount += 1
-        lastCount = count
-    }
-}
-
-private struct RenderTimeout: Error, CustomStringConvertible {
-    let description: String
-}
+// tests that touch the registry share the singleton `\StoreValues.renderingCounterStore`.
+//
+// Support types live in sibling folders:
+//   Reducers/ — RenderingCounterReducer, RenderingCounterStoreKey, \.renderingCounterStore
+//   Models/   — RenderProbe, SharedIdentityProbe, RenderTimeout
+//   Views/    — probe views used below
 
 @MainActor
 @Suite("SwiftUI rendering baseline", .serialized)
@@ -40,7 +37,7 @@ struct SwiftUIRenderingTests {
     init() async throws {
         // Reset the registry-backed counter store before every @Test so state
         // doesn't leak across tests.
-        Shared(\StoreValues.counterStore).wrappedValue.send(.reset)
+        Shared(\StoreValues.renderingCounterStore).wrappedValue.send(.reset)
     }
 
     // MARK: - Path 1: view holds Store as a plain `let` property
@@ -100,7 +97,7 @@ struct SwiftUIRenderingTests {
     @Test("Body invoked with live registry state when view mounts after mutations — @Shared")
     func shared_whenMountedAfterIncrements_observesCurrentCount() async throws {
         let probe = RenderProbe()
-        let registryStore = Shared(\StoreValues.counterStore).wrappedValue
+        let registryStore = Shared(\StoreValues.renderingCounterStore).wrappedValue
         registryStore.send(.increment)
         registryStore.send(.increment)
 
@@ -120,10 +117,33 @@ struct SwiftUIRenderingTests {
 
         try await waitForBodyCount(probe, atLeast: 1, timeout: 2.0)
 
-        Shared(\StoreValues.counterStore).wrappedValue.send(.increment)
+        Shared(\StoreValues.renderingCounterStore).wrappedValue.send(.increment)
 
         try await waitForLastCount(probe, equals: 1, timeout: 2.0)
         #expect(probe.lastCount == 1)
+    }
+
+    @Test("Body re-renders after view dispatches through @Shared wrappedValue from onAppear")
+    func shared_whenViewDispatchesFromOnAppear_observesIncrement() async throws {
+        let probe = RenderProbe()
+
+        let host = mount(SharedOnAppearDispatchView(probe: probe))
+        defer { teardown(host) }
+
+        try await waitForLastCount(probe, equals: 1, timeout: 2.0)
+        #expect(probe.lastCount == 1)
+    }
+
+    @Test("Two @Shared handles in one view resolve wrappedValue to identical Store")
+    func shared_whenTwoHandlesInSameView_wrappedValueResolvesToIdenticalStore() async throws {
+        let probe = SharedIdentityProbe()
+
+        let host = mount(SharedIdentityView(probe: probe))
+        defer { teardown(host) }
+
+        try await waitForIdentityProbe(probe, timeout: 2.0)
+        let identities = try #require(probe.identities)
+        #expect(identities.0 == identities.1)
     }
 
     @Test("Two @Shared handles both observe same registry mutation")
@@ -141,7 +161,7 @@ struct SwiftUIRenderingTests {
         try await waitForBodyCount(probeA, atLeast: 1, timeout: 2.0)
         try await waitForBodyCount(probeB, atLeast: 1, timeout: 2.0)
 
-        Shared(\StoreValues.counterStore).wrappedValue.send(.increment)
+        Shared(\StoreValues.renderingCounterStore).wrappedValue.send(.increment)
 
         try await waitForLastCount(probeA, equals: 1, timeout: 2.0)
         try await waitForLastCount(probeB, equals: 1, timeout: 2.0)
@@ -149,10 +169,61 @@ struct SwiftUIRenderingTests {
         #expect(probeB.lastCount == 1)
     }
 
+    // MARK: - Negative invariants
+
+    @Test("Body does not re-run in absence of Store mutations")
+    func storeProp_whenNoMutation_bodyCountStaysStable() async throws {
+        let probe = RenderProbe()
+        let store = makeCounterStore()
+
+        let host = mount(StorePropProbeView(store: store, probe: probe))
+        defer { teardown(host) }
+
+        try await waitForBodyCount(probe, atLeast: 1, timeout: 2.0)
+        await pump()
+        await pump()
+        let settled = probe.bodyCount
+
+        // Negative assertion: give any spurious re-render time to happen, then assert it didn't.
+        try await Task.sleep(nanoseconds: 300_000_000) // 300ms
+
+        #expect(probe.bodyCount == settled)
+    }
+
+    @Test("Mutating one Store does not re-render a view bound to a different Store")
+    func storeProp_whenSiblingStoreMutates_unrelatedViewDoesNotReRun() async throws {
+        let probeA = RenderProbe()
+        let probeB = RenderProbe()
+        let storeA = makeCounterStore()
+        let storeB = makeCounterStore()
+
+        let hostA = mount(StorePropProbeView(store: storeA, probe: probeA))
+        let hostB = mount(StorePropProbeView(store: storeB, probe: probeB))
+        defer {
+            teardown(hostA)
+            teardown(hostB)
+        }
+
+        try await waitForBodyCount(probeA, atLeast: 1, timeout: 2.0)
+        try await waitForBodyCount(probeB, atLeast: 1, timeout: 2.0)
+        await pump()
+        await pump()
+        let bBefore = probeB.bodyCount
+
+        storeA.send(.increment)
+        try await waitForLastCount(probeA, equals: 1, timeout: 2.0)
+
+        // Negative assertion: wait long enough for spurious cross-store renders to surface.
+        try await Task.sleep(nanoseconds: 300_000_000) // 300ms
+
+        #expect(probeB.bodyCount == bBefore)
+        #expect(probeB.lastCount == 0)
+    }
+
     // MARK: - SUT factory
 
-    private func makeCounterStore() -> Store<CounterReducer> {
-        Store(initial: CounterReducer.State(), reducer: CounterReducer())
+    private func makeCounterStore() -> Store<RenderingCounterReducer> {
+        Store(initial: RenderingCounterReducer.State(), reducer: RenderingCounterReducer())
     }
 
     // MARK: - Hosting helpers
@@ -176,8 +247,8 @@ struct SwiftUIRenderingTests {
     }
 
     private func teardown(_ host: Host) {
+        host.orderOut(nil)
         host.contentView = nil
-        host.close()
     }
     #elseif canImport(UIKit)
     typealias Host = UIWindow
@@ -239,31 +310,16 @@ struct SwiftUIRenderingTests {
             description: "Timed out waiting for lastCount == \(target); got \(String(describing: probe.lastCount))"
         )
     }
-}
 
-// MARK: - Probe views
-//
-// File-scope private so their @MainActor inference isn't tangled with the
-// Suite's isolation when used inside @Test methods.
-
-private struct StorePropProbeView: View {
-    let store: Store<CounterReducer>
-    let probe: RenderProbe
-
-    var body: some View {
-        let count = store.state.count
-        probe.record(count)
-        return Text("\(count)")
-    }
-}
-
-private struct SharedWrapperProbeView: View {
-    @Shared(\.counterStore) var counter
-    let probe: RenderProbe
-
-    var body: some View {
-        let count = counter.state.count
-        probe.record(count)
-        return Text("\(count)")
+    private func waitForIdentityProbe(
+        _ probe: SharedIdentityProbe,
+        timeout: TimeInterval
+    ) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if probe.identities != nil { return }
+            await pump()
+        }
+        throw RenderTimeout(description: "Timed out waiting for identity probe to record")
     }
 }
