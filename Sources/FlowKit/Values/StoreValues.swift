@@ -31,6 +31,14 @@ public struct StoreValues: Sendable {
         }
     }
 
+    /// Resolves a key-path from the task-local `_global` registry. Single
+    /// chokepoint for KeyPath-based reads so that any future invariants
+    /// (logging, lazy init, test overrides) can live in one place.
+    @MainActor
+    static func current<Value>(_ keyPath: KeyPath<StoreValues, Value>) -> Value {
+        _global[keyPath: keyPath]
+    }
+
     /// Runs `operation` with a fresh `StoreValues` instance bound to `_global`
     /// for the duration of the call. Use this in tests to inject stubs/mocks
     /// without leaking state across tests.

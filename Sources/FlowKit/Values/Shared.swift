@@ -15,7 +15,7 @@ public import SwiftUI
 @propertyWrapper
 @MainActor
 public struct Shared<R: Reducer, S: Store<R>>: DynamicProperty {
-    /// The store instance resolved from `StoreValues._global` at init time.
+    /// The store instance resolved from `StoreValues` at init time.
     /// Changes to this store trigger UI updates via `@Observable`.
     private let store: S
 
@@ -28,6 +28,6 @@ public struct Shared<R: Reducer, S: Store<R>>: DynamicProperty {
     ///
     /// - Parameter keyPath: A key path to the store within the global store values repository.
     public init(_ keyPath: KeyPath<StoreValues, S>) {
-        self.store = StoreValues._global[keyPath: keyPath]
+        self.store = StoreValues.current(keyPath)
     }
 }

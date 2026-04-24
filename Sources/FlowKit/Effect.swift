@@ -162,8 +162,7 @@ public struct Send<Action>: Sendable {
     ) async {
         guard !Task.isCancelled else { return }
         await MainActor.run {
-            let store = StoreValues._global[keyPath: keyPath]
-            store.send(action)
+            StoreValues.current(keyPath).send(action)
         }
     }
 }
