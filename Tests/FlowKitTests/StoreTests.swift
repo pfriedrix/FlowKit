@@ -203,30 +203,19 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(store.state.message, "Message \(repeatCount - 1)", "The message should reflect the last setMessage action.")
     }
     
-    func testHighFrequencyActionsWithInterruptions() async throws {
+    func testHighFrequencyActionsWithInterruptions() {
         let totalPrimaryActions = 10_000
-        let interruptionInterval = 100  // Every 100 primary actions, interrupt with a secondary action
+        let interruptionInterval = 100
 
-        // Dispatch primary actions frequently with delays
         for i in 1...totalPrimaryActions {
             store.send(.increment)
-
-            try await Task.sleep(nanoseconds: 1_000_000)  // 1 millisecond
-
-            // Occasionally interrupt with a secondary action
-            if i % interruptionInterval == 0 {
+            if i.isMultiple(of: interruptionInterval) {
                 store.send(.num)
             }
         }
 
-        // Validate the final state
-        try await waitForStateChange(timeout: 10.0) {
-            self.store.state.count == totalPrimaryActions &&
-            self.store.state.num == 100
-        }
-
-        XCTAssertEqual(store.state.count, totalPrimaryActions, "The count should match the total number of primary actions.")
-        XCTAssertEqual(store.state.num, 100, "The num should match total number of interruptions.")
+        XCTAssertEqual(store.state.count, totalPrimaryActions)
+        XCTAssertEqual(store.state.num, 100)
     }
     
 }
