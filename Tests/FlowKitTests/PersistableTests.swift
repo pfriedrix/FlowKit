@@ -175,47 +175,51 @@ final class PersistableTests: XCTestCase {
         XCTAssertEqual(loadedReducerBState?.value, "Reducer B Value", "ReducerB.State should retain its own saved value.")
     }
     
-    /// Test that corrupted data is automatically removed during load
-    func testCorruptedDataAutoRemoval() {
-        // Save valid data first
+    /// `load()` must return nil on decode failure, but must NOT delete the persisted
+    /// blob — decode failure is a normal consequence of type evolution, and silently
+    /// wiping the data would make migration impossible.
+    func testLoadReturnsNilButPreservesCorruptedData() {
+        // Save valid data first.
         let testState = TestState(value: "Valid")
         testState.save()
-        
-        // Verify it loads correctly
         XCTAssertEqual(TestState.load()?.value, "Valid")
-        
-        // Manually corrupt the data
+
+        // Replace with something that won't decode as TestState.
         let corruptedData = "This is not JSON".data(using: .utf8)!
         UserDefaults.standard.set(corruptedData, forKey: TestState.key)
-        
-        // Attempt to load - should return nil and clean up corrupted data
-        let loadedState = TestState.load()
-        XCTAssertNil(loadedState, "Loading corrupted data should return nil")
-        
-        // Verify corrupted data was removed
-        let dataAfterCleanup = UserDefaults.standard.data(forKey: TestState.key)
-        XCTAssertNil(dataAfterCleanup, "Corrupted data should be automatically removed")
+
+        // load() returns nil on decode failure...
+        XCTAssertNil(TestState.load(), "Loading corrupted data should return nil")
+
+        // ...but the raw blob must survive so callers can migrate or inspect it.
+        let dataAfterLoad = UserDefaults.standard.data(forKey: TestState.key)
+        XCTAssertEqual(dataAfterLoad, corruptedData, "Corrupted data must be preserved across a failed load")
     }
     
-    /// Test that save handles encoding failures gracefully
+    /// `save()` must handle encoder failures without crashing, and — critically —
+    /// must NOT clobber a previously persisted, valid blob when encoding throws.
     func testSaveEncodingFailureRecovery() {
         struct CorruptState: Persistable {
             var value: String = "test"
-            
-            // Custom encode that always fails to simulate encoding error
+
+            // Custom encode that always fails to simulate encoding error.
             func encode(to encoder: any Encoder) throws {
                 throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Simulated encoding failure"])
             }
         }
-        
-        let corruptState = CorruptState()
-        
-        // This should not crash and should handle the error gracefully
-        corruptState.save()
-        
-        // Verify no data was saved due to encoding failure
-        let savedData = UserDefaults.standard.data(forKey: CorruptState.key)
-        XCTAssertNil(savedData, "No data should be saved when encoding fails")
+
+        // Seed a previous, valid payload under the same key.
+        let priorData = "previous valid blob".data(using: .utf8)!
+        UserDefaults.standard.set(priorData, forKey: CorruptState.key)
+        defer { UserDefaults.standard.removeObject(forKey: CorruptState.key) }
+
+        // Attempt to save a value whose encoder throws.
+        CorruptState().save()
+
+        // The prior blob must still be intact — losing user data on a transient
+        // encode failure would be a regression.
+        let dataAfterFailedSave = UserDefaults.standard.data(forKey: CorruptState.key)
+        XCTAssertEqual(dataAfterFailedSave, priorData, "Failed save must not wipe previously persisted data")
     }
     
     /// Test UserDefaults synchronization failure handling
