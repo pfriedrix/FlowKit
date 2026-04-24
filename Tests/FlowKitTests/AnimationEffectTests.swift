@@ -128,6 +128,18 @@ final class AnimationEffectTests: XCTestCase {
         XCTAssertNil(effect.animation)
     }
 
+    /// Regression guard: `.animation(nil)` must actually clear a previously-attached
+    /// animation, not silently no-op. Before the fix the method guarded on `nil` and
+    /// returned `self`, so this chain would have kept `.easeIn` instead of clearing it.
+    func testNilAnimationClearsPreviouslyAttachedAnimation() {
+        let effect = Effect<AnimationReducer.Action>
+            .send(.increment)
+            .animation(.easeIn)
+            .animation(nil)
+
+        XCTAssertNil(effect.animation)
+    }
+
     // MARK: - Synchronous dispatch
     //
     // Regression guard: prior to the fix, `.send(...).animation(...)` was rewritten
