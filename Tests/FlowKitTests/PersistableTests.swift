@@ -203,7 +203,7 @@ final class PersistableTests: XCTestCase {
             var value: String = "test"
             
             // Custom encode that always fails to simulate encoding error
-            func encode(to encoder: Encoder) throws {
+            func encode(to encoder: any Encoder) throws {
                 throw NSError(domain: "TestError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Simulated encoding failure"])
             }
         }
