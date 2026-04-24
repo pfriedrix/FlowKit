@@ -34,7 +34,7 @@ struct AnimationReducer: Reducer {
                 .animation(.easeInOut)
         case .animatedRun:
             return .run { send in
-                send(.increment)
+                await send(.increment)
             }
             .animation(.spring)
         case .animatedNone:
@@ -121,7 +121,7 @@ final class AnimationEffectTests: XCTestCase {
 
     func testAnimatedRunKeepsRunOperation() {
         let effect = Effect<AnimationReducer.Action>.run { send in
-            send(.increment)
+            await send(.increment)
         }.animation(.spring)
 
         guard case .run = effect.operation else {

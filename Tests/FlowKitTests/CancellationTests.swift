@@ -26,7 +26,7 @@ final class CancellableReducer: Reducer {
             return .run { send in
                 // Simulated async operation
                 try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-                send(.completeTask)
+                await send(.completeTask)
             } catch: { error, send in
                 // Handle errors (like CancellationError) silently
                 // Task was cancelled or failed, don't send completion
@@ -69,7 +69,7 @@ final class RaceConditionTestReducer: Reducer {
                 // Send action based on cancellation status
                 // Note: If cancelled, the send may not go through due to Task.isCancelled check in Store
                 if !Task.isCancelled {
-                    send(.taskExecuted)
+                    await send(.taskExecuted)
                 }
             } catch: { error, send in
                 // Task was cancelled before completion

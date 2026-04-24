@@ -17,12 +17,12 @@ final class AsyncTaskReducer: Reducer {
         case .startShortTask:
             return .run { send in
                 try await Task.sleep(nanoseconds: 50_000_000) // 50ms
-                send(.taskCompleted)
+                await send(.taskCompleted)
             } catch: { _, _ in }
         case .startLongTask:
             return .run { send in
                 try await Task.sleep(nanoseconds: 2_000_000_000) // 2s
-                send(.taskCompleted)
+                await send(.taskCompleted)
             } catch: { _, _ in }
         case .taskCompleted:
             state.completedCount += 1

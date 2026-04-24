@@ -33,7 +33,7 @@ final class ReducerSyncTests: XCTestCase {
                 return .none
             case .start:
                 return .run { send in
-                    send(.increment)
+                    await send(.increment)
                 }
             case .reset:
                 state.count = 0

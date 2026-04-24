@@ -19,7 +19,7 @@ struct CancelInFlightReducer: Reducer {
         case .startTask(let value):
             return .run { send in
                 try await Task.sleep(nanoseconds: 200_000_000)
-                send(.completed(value))
+                await send(.completed(value))
             } catch: { _, _ in }
             .cancellable(id: "task", cancelInFlight: cancelInFlight)
 

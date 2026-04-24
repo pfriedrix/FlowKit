@@ -135,41 +135,32 @@ extension Effect: Equatable where Action: Equatable {
 
 /// A type that sends actions, commonly used within async effects.
 ///
-/// `Send` is utilized to dispatch actions during the execution of an effect.
-/// It ensures actions are sent to the main actor to update the UI safely.
+/// Used inside `.run` effect bodies to dispatch actions back to the store.
+/// Call sites `await send(.action)` — the await hops the caller onto MainActor
+/// for dispatch and resumes them on return. No internal Task spawning.
 ///
 /// - Parameters:
 ///   - Action: The type of action to send.
 public struct Send<Action>: Sendable {
-    /// A closure that sends the specified action.
-    let send: @Sendable (Action) -> Void
-    
-    /// Creates a new `Send` instance with a given action dispatcher.
-    ///
-    /// - Parameter send: A closure to dispatch actions.
-    public init(send: @escaping @Sendable (Action) -> Void) {
+    let send: @Sendable (Action) async -> Void
+
+    public init(send: @escaping @Sendable (Action) async -> Void) {
         self.send = send
     }
-    
-    /// Dispatches an action, unless the task is canceled.
-    ///
-    /// - Parameter action: The action to be sent.
-    public func callAsFunction(_ action: Action) {
+
+    /// Dispatches an action on MainActor, unless the surrounding task is cancelled.
+    public func callAsFunction(_ action: Action) async {
         guard !Task.isCancelled else { return }
-        self.send(action)
+        await self.send(action)
     }
 
-    /// Dispatches an action to a shared store instance.
-    ///
-    /// Use this function to send an action to a store referenced by the given key path in `StoreValues`.
-    /// This allows running effects to interact with different store instances.
-    ///
-    /// - Parameters:
-    ///   - keyPath: A key path that identifies the `Store` within `StoreValues`.
-    ///   - action: The action to be sent to the store.
-    public func callAsFunction<R: Reducer, S: Store<R>>(_ keyPath: sending KeyPath<StoreValues, S>, action: S.Action) {
+    /// Dispatches an action to a shared store referenced by `keyPath` in `StoreValues`.
+    public func callAsFunction<R: Reducer, S: Store<R>>(
+        _ keyPath: sending KeyPath<StoreValues, S>,
+        action: S.Action
+    ) async {
         guard !Task.isCancelled else { return }
-        Task { @MainActor in
+        await MainActor.run {
             let store = StoreValues._global[keyPath: keyPath]
             store.send(action)
         }

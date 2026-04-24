@@ -20,7 +20,7 @@ struct EffectRunReducer: Reducer {
         switch action {
         case .runWithPriority(let priority):
             return .run(priority: priority) { send in
-                send(.completed("done"))
+                await send(.completed("done"))
             }
 
         case .runThatThrowsWithHandler:
@@ -28,7 +28,7 @@ struct EffectRunReducer: Reducer {
                 throw NSError(domain: "Test", code: 42)
             } catch: { error, send in
                 let nsError = error as NSError
-                send(.errorCaught("code:\(nsError.code)"))
+                await send(.errorCaught("code:\(nsError.code)"))
             }
 
         case .runThatThrowsWithoutHandler:
@@ -40,7 +40,7 @@ struct EffectRunReducer: Reducer {
             return .run { send in
                 throw CancellationError()
             } catch: { error, send in
-                send(.errorCaught("cancelled"))
+                await send(.errorCaught("cancelled"))
             }
 
         case .completed(let value):

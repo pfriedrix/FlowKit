@@ -160,9 +160,8 @@ final public class Store<R: Reducer> {
         let key = UUID()
 
         let send = Send<Action> { [weak self] action in
-            guard !Task.isCancelled else { return }
-            Task { @MainActor [weak self] in
-                guard let self else { return }
+            guard let self else { return }
+            await MainActor.run {
                 if let animation {
                     withAnimation(animation) { self.send(action) }
                 } else {

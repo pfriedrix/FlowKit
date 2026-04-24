@@ -120,7 +120,7 @@ final class MergeCancellableReducer: Reducer {
             state.status = "Task Started"
             return .run { send in
                 try await Task.sleep(nanoseconds: 1_000_000_000)
-                send(.completeTask)
+                await send(.completeTask)
             } catch: { _, _ in }
             .cancellable(id: "runTask", cancelInFlight: true)
 
