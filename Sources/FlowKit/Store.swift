@@ -44,7 +44,11 @@ final public class Store<R: Reducer> {
         return full.components(separatedBy: ".").last ?? full
     }
 
-    /// Hook called with a state snapshot after every successful reduce; runs in a detached background task.
+    /// Internal hook wired by the `Storable` integration in `Storage.swift`.
+    /// Invoked synchronously on MainActor after every successful reduce.
+    /// The `Storable` wiring dispatches the body onto a serial background
+    /// queue so encoding/UserDefaults writes stay off MainActor while
+    /// preserving per-action ordering. Not intended as a general-purpose hook.
     var willSave: (@Sendable (State) -> Void)? = nil
 
     /// Every in-flight `.run` effect — cancellable or not. Keyed by a fresh
@@ -57,13 +61,6 @@ final public class Store<R: Reducer> {
     }
 
     var tasks: [UUID: RunningEffect] = [:]
-
-    deinit {
-        // Tasks hold `[weak self]`, so any outstanding work becomes a no-op once
-        // the store is gone. Explicit cancellation would require `isolated deinit`
-        // (SE-0371), which isn't enabled here; we trade eager cancel for simpler
-        // teardown since un-cancellable work finishes on its own.
-    }
 
     /// Initializes the store with an initial state and a reducer.
     ///

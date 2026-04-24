@@ -2,6 +2,15 @@ import XCTest
 import os
 @testable import FlowKit
 
+// Whitebox tests for the internal `Store.willSave` hook.
+//
+// `willSave` is an internal implementation detail of the `Storable` integration
+// (see `Storage.swift` for the production wiring). It is reached here via
+// `@testable import FlowKit` to lock in the low-level invariants the integration
+// relies on: called once per reduce, in order, with the post-reduce state, and
+// skipped when nil. These tests are NOT a public-API contract — do not rely on
+// `willSave` in application code.
+
 struct WillSaveReducer: Reducer {
     struct State: Equatable, Sendable {
         var count: Int = 0
