@@ -60,7 +60,7 @@ final public class Store<R: Reducer> {
         let task: Task<Void, Never>
     }
 
-    var tasks: [UUID: RunningEffect] = [:]
+    private(set) var tasks: [UUID: RunningEffect] = [:]
 
     /// Initializes the store with an initial state and a reducer.
     ///
