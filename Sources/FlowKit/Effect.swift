@@ -17,8 +17,8 @@ public struct Effect<Action: Sendable> {
     /// - `send`: Directly sends an action.
     /// - `merge`: Sends multiple actions sequentially.
     /// - `run`: Executes an asynchronous task. When `cancellationId` is non-nil the
-    ///   task is registered with the store's `CancellableCollection` and can later be
-    ///   cancelled via `.cancel(id:)`.
+    ///   task is registered in the store's MainActor-isolated task registry and can
+    ///   later be cancelled via `.cancel(id:)`.
     /// - `cancel`: Cancels any in-flight cancellable task associated with the given id.
     enum Operation {
         case none
@@ -113,8 +113,9 @@ extension Effect {
 extension Effect: Equatable where Action: Equatable {
     /// Structural equality for effects whose actions are `Equatable`.
     ///
-    /// `.run` effects compare by `TaskPriority` only — the closure itself is
-    /// treated as opaque, since closures cannot be compared.
+    /// `.run` effects compare by `TaskPriority`, `cancellationId`, and
+    /// `cancelInFlight` — the closure itself is treated as opaque, since
+    /// closures cannot be compared.
     public static func == (lhs: Effect, rhs: Effect) -> Bool {
         switch (lhs.operation, rhs.operation) {
         case (.none, .none):

@@ -1,10 +1,10 @@
 extension Effect {
     /// Marks this effect as cancellable by a unique identifier.
     ///
-    /// Embeds the `id` into the `.run` operation as metadata. When the store handles the
-    /// effect, it enqueues a `.register` command to the per-store `CancellableCollection`
-    /// synchronously on the reducer's isolation, guaranteeing register/cancel ordering
-    /// with any subsequent `.cancel(id:)` dispatched in the same `send` chain.
+    /// Embeds the `id` into the `.run` operation as metadata. When the store handles
+    /// the effect it inserts the running task into its MainActor-isolated task registry
+    /// synchronously, guaranteeing register/cancel ordering with any subsequent
+    /// `.cancel(id:)` dispatched in the same `send` chain.
     ///
     /// Only applies to `.run` effects; other operations are returned unchanged.
     ///

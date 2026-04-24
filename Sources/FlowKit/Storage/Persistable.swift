@@ -14,8 +14,14 @@ extension Persistable {
     
     /// The unique key used for saving and retrieving the state in `UserDefaults`.
     ///
-    /// By default, this key is generated using the type name of the conforming object,
-    /// ensuring uniqueness for each type. Override this property if a custom key is needed.
+    /// By default, this key is derived from the fully-qualified type name via
+    /// `String(reflecting: Self.self)`, which includes the module name — so two
+    /// types named `State` in different modules won't collide.
+    ///
+    /// - Note: `key` is defined in a protocol extension (not a protocol requirement),
+    ///   so redeclaring it on a conforming type does NOT override the version used
+    ///   by the default `save()`/`load()` implementations below. If you need a custom
+    ///   key, provide your own `save()`/`load()` that reads/writes through it.
     static var key: String {
         "\(String(reflecting: Self.self))"
     }

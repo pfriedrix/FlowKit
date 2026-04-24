@@ -1,4 +1,4 @@
-/// An attached accessor and member macro that generates dependency injection code for properties
+/// An attached accessor and peer macro that generates dependency injection code for properties
 /// in types conforming to `StoreValues`. It extracts the default initializer as the default value.
 @attached(accessor)
 @attached(peer, names: prefixed(__Store_))
