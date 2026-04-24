@@ -1,271 +1,280 @@
----
-
 # FlowKit
 
-FlowKit is a Swift-based library that implements a Unidirectional Data Flow (UDF) architecture, designed to simplify state management within applications. It centralizes application state and logic, making your app's behavior more predictable, testable, and maintainable.
+FlowKit is a Swift state-management library that implements Unidirectional Data Flow (UDF) on top of `@Observable` and Swift Concurrency. State, reducers, and effect dispatch are MainActor-isolated; async work runs off-actor and hops back via `Send`.
 
-## Table of Contents
+```
+Action → Reducer → State → Effect → (async work) → Action
+```
 
-1. [Introduction](#introduction)
-2. [Installation](#installation)
-3. [Architecture Overview](#architecture-overview)
-4. [Usage](#usage)
-   - [Store](#store)
-   - [Reducer](#reducer)
-   - [Effect](#effect)
-   - [Storage](#storage)
-   - [Persistable](#persistable)
-   - [Shared](#shared)
-   - [Inject Macro](#inject-macro)
-5. [License](#license)
+## Requirements
 
-## Introduction
-
-Inspired by the UDF architecture pattern, FlowKit provides a structured approach to managing state in Swift applications. With FlowKit, developers can centralize state in a single `Store`, apply updates through `Reducers`, and handle asynchronous tasks with `Effects`. This architecture provides a straightforward flow that scales easily and aids in debugging by making application state predictable and consistent.
+- Swift 6.0 (Xcode 16+), Swift language mode `.v6`
+- iOS 17, macOS 14, watchOS 10, tvOS 17
+- Strict-concurrency clean: every `State` and `Action` must be `Sendable`
 
 ## Installation
 
-To install FlowKit via Swift Package Manager (SPM):
-
-1. Open your Xcode project.
-2. Go to `File` > `Add Packages...`.
-3. Enter the following URL in the search bar:
-   ```
-   https://github.com/pfriedrix/FlowKit
-   ```
-4. Select the FlowKit package and choose the desired version.
-5. Click `Add Package`.
-
-This will add FlowKit to your project, enabling state management using UDF principles in Swift.
-
-## Architecture Overview
-
-FlowKit follows a unidirectional data flow to make state changes predictable and easy to trace. The main components are:
-
-- **Store**: Holds the application’s state and allows updates via dispatched actions.
-- **Action**: Describes events that occur, like user interactions or external data updates.
-- **Reducer**: Defines how the state transitions in response to actions.
-- **Effect**: Manages side effects, such as network requests and asynchronous operations.
-  
-## Usage
-
-### Store
-
-The `Store` is the central component that maintains the application’s state. It initializes with an initial state and a reducer that specifies how actions change the state.
+Add FlowKit to your `Package.swift`:
 
 ```swift
-let store = Store(initial: AppReducer.State(), reducer: AppReducer())
+dependencies: [
+    .package(url: "https://github.com/pfriedrix/FlowKit", from: "0.3.2")
+],
+targets: [
+    .target(name: "App", dependencies: ["FlowKit"])
+]
 ```
 
-### Reducer
+Or in Xcode: **File → Add Packages…**, enter `https://github.com/pfriedrix/FlowKit`, pick a version, add the **FlowKit** product to your target.
 
-A `Reducer` is responsible for handling actions and modifying the state accordingly. It defines how actions influence the application state and can return an `Effect` for asynchronous operations.
-
-Example:
+## Quick start
 
 ```swift
+import FlowKit
+import SwiftUI
+
 struct CounterReducer: Reducer {
-    struct State: Equatable {
-        var count: Int = 0
-    }
-    
-    enum Action {
-        case increment
-        case decrement
-    }
-    
+    struct State: Equatable, Sendable { var count = 0 }
+    enum Action: Sendable { case increment, decrement }
+
     func reduce(into state: inout State, action: Action) -> Effect<Action> {
         switch action {
-        case .increment:
-            state.count += 1
-            return .none
-        case .decrement:
-            state.count -= 1
-            return .none
+        case .increment: state.count += 1; return .none
+        case .decrement: state.count -= 1; return .none
+        }
+    }
+}
+
+struct CounterView: View {
+    @State private var store = Store(initial: .init(), reducer: CounterReducer())
+
+    var body: some View {
+        VStack {
+            Text("\(store.state.count)")
+            Button("+") { store.send(.increment) }
+            Button("-") { store.send(.decrement) }
         }
     }
 }
 ```
 
-### Effect
+`Store` is `@Observable`, so SwiftUI tracks `state` automatically.
 
-`Effect` is used to handle side effects, such as network requests and other asynchronous operations.
-
-Example of using an effect to handle async tasks:
+## Store
 
 ```swift
-func reduce(into state: inout State, action: Action) -> Effect<Action> {
-    switch action {
-    case .fetchData:
-        return .run { send in
-            let data = await fetchData()
-            await send(.updateData(data))
-        }
-    case .updateData(let newData):
-        state.data = newData
-        return .none
-    }
+@MainActor
+@Observable
+public final class Store<R: Reducer> {
+    public var state: State
+    public required init(initial: State, reducer: R)
+    public func send(_ action: Action)
 }
 ```
 
-### Storage
+`send(_:)` runs the reducer synchronously on MainActor, commits the new state, then schedules any returned effect. In-flight `.run` effects are tracked in a per-store registry keyed by UUID and cancelled on `deinit`.
 
-FlowKit provides the `Storable` protocol for persisting state between app sessions. This allows application state to be saved and restored automatically, ensuring data continuity across app launches. `Storable` defines essential methods for saving and loading state. This is especially useful for maintaining user preferences, session data, and application configurations without requiring additional manual handling by developers.
+A second initializer is available when `State: Storable` — see [Persistence](#persistence).
 
-Example:
+## Reducer
 
 ```swift
-struct State: Storable {
-    var count: Int
+public protocol Reducer<State, Action>: Sendable {
+    associatedtype State: Sendable
+    associatedtype Action: Sendable
 
-    func save() {
-        // Save the state
-    }
-
-    static func load() -> State? {
-        // Load and return the saved state
-    }
+    @MainActor
+    func reduce(into state: inout State, action: Action) -> Effect<Action>
 }
 ```
+
+## Effect
+
+`Effect<Action>` is the only return type from a reducer. It carries one of:
+
+- `.none` — no side effect
+- `.send(Action)` — dispatch a follow-up action
+- `.merge(Action...)` — dispatch several actions in order
+- `.run { send in … }` — run an async closure, optionally `throws`, with an optional `catch` handler
+- `.cancel(id:)` — cancel an in-flight cancellable run
+
+```swift
+case .fetchUser(let id):
+    return .run { send in
+        let user = try await api.user(id: id)
+        await send(.userLoaded(user))
+    } catch: { error, send in
+        await send(.userFailed(error))
+    }
+```
+
+Inside a `.run`, `send` is a `Send<Action>` you call as a function. Each call hops to MainActor and dispatches into this store. To dispatch into a *different* shared store, pass a key path:
+
+```swift
+return .run { send in
+    let value = await fetchValue()
+    await send(\.analyticsStore, action: .track(value))
+}
+```
+
+If you only need fire-and-forget dispatch into another store from a reducer, use `Effect.send(_:action:)`:
+
+```swift
+return .send(\.analyticsStore, action: .screenViewed)
+```
+
+### Effect modifiers
+
+```swift
+.cancellable(id: SearchID(), cancelInFlight: true)
+.animation(.spring())
+```
+
+- `.cancellable(id:cancelInFlight:)` — registers the `.run` task in the store's MainActor task registry under `id`. Pair with `Effect.cancel(id:)` to cancel it. Set `cancelInFlight: true` to cancel any prior task with the same id before this one starts.
+- `Effect.cancel(id:)` — pure-data effect; cancellation happens synchronously on MainActor when the store handles it, so it's safe to dispatch in the same `send` chain that registered the task.
+- `.animation(_:)` — wraps the action dispatches this effect performs in `withAnimation(_:)`. Pass `nil` to clear an inherited animation.
+
+> Cancellation is cooperative. The async body must observe `Task.isCancelled` (e.g. via `try await Task.sleep`, `try Task.checkCancellation()`) for cancellation to actually stop work.
+
+## Persistence
+
+### Storable
+
+```swift
+public protocol Storable {
+    func save()
+    static func load() -> Self?
+}
+```
+
+When `State: Storable`, use the convenience initializer to wire automatic save-on-action:
+
+```swift
+let store = Store(reducer: AppReducer(), default: AppState())
+```
+
+This restores from `State.load()` if available, otherwise seeds with `default` and saves it. Subsequent `send(_:)` calls fire `state.save()` on a per-store serial background queue, so encoding stays off MainActor.
 
 ### Persistable
 
-`Persistable` builds on `Storable` to streamline automatic state persistence in `UserDefaults`. It provides default implementations for saving and loading state without requiring additional code from the developer. By conforming to `Persistable`, a type automatically gains support for encoding and decoding its state using `Codable`, and saving/restoring from persistent storage using a uniquely derived key. This ensures that the application state is always retained across app restarts, making it easy to manage user sessions, preferences, and other critical data.
-
-Example:
+`Persistable: Storable, Codable` ships default JSON + `UserDefaults` implementations keyed by `String(reflecting: Self.self)`. Conformance is one line:
 
 ```swift
 struct AppState: Persistable, Equatable {
-    var count: Int = 0
-    var isLoggedIn: Bool = false
+    var count = 0
+    var isLoggedIn = false
 }
+```
 
-enum AppAction {
-    case increment
-    case decrement
-    case login
-    case logout
-}
+For custom backing stores (Keychain, files, SwiftData…) implement `Storable` directly.
 
-struct AppReducer: Reducer {
-    func reduce(into state: inout AppState, action: AppAction) -> Effect<AppAction> {
-        switch action {
-        case .increment:
-            state.count += 1
-            return .none
-        case .decrement:
-            state.count -= 1
-            return .none
-        case .login:
-            state.isLoggedIn = true
-            return .none
-        case .logout:
-            state.isLoggedIn = false
-            return .none
-        }
-    }
-}
+## Dependency injection
 
-// Initializing a store with automatic persistence using Storage.swift functionality
-let store = Store(reducer: AppReducer(), default: AppState.load() ?? AppState())
+FlowKit ships a SwiftUI-style task-local registry: `StoreValues` is to stores what `EnvironmentValues` is to environment values.
 
-// Dispatching an action that modifies the state
-store.send(.increment)
+### @Inject
 
-// The state is automatically saved after each action
-/*
-Explanation of the persistence mechanism:
-
-1. `AppState` conforms to `Persistable`, allowing it to be automatically saved and loaded.
-2. The store is initialized with `AppState.load()` to restore previous state if available.
-3. Whenever an action is dispatched (`store.send(.increment)`),
-   - The reducer updates the state.
-   - The `Store` automatically persists the updated state.
-4. On app restart, `AppState.load()` retrieves the last saved state, ensuring continuity.
-4. `@Inject` automatically creates a `StoreKey` type to manage store access dynamically, whereas manually defining it would require extra code:
+`@Inject` is the recommended way to register a shared store. Apply it to a typed, initialized property inside `extension StoreValues`:
 
 ```swift
-fileprivate struct __Key_counterStore: StoreKey {
-    static let defaultValue: Store<CounterReducer> = .init(initial: .init(), reducer: .init())
-}
-
 extension StoreValues {
+    @Inject var counterStore: Store<CounterReducer> = .init(
+        initial: .init(),
+        reducer: .init()
+    )
+}
+```
+
+The macro expands to:
+
+```swift
+extension StoreValues {
+    fileprivate struct __Store_counterStore: StoreKey {
+        @MainActor static let defaultValue: Store<CounterReducer> =
+            .init(initial: .init(), reducer: .init())
+    }
     var counterStore: Store<CounterReducer> {
-        get { self[__Key_counterStore.self] }
-        set { self[__Key_counterStore.self] = newValue }
+        get { self[__Store_counterStore.self] }
+        set { self[__Store_counterStore.self] = newValue }
     }
 }
 ```
 
-5. Without `@Inject`, any changes to the store initialization must be manually updated in multiple places, whereas `@Inject` centralizes it for maintainability.
-*/
-```
+### @Shared
 
-### Shared
-
-`Shared` allows accessing a globally stored instance of `Store` in a SwiftUI environment. It simplifies state management by ensuring that views always have access to a consistent, shared state without needing to manually pass the store down the view hierarchy. This approach improves modularity and maintainability, as different parts of the app can access and modify state while staying in sync. The `Shared` property wrapper retrieves the store from the globally defined `StoreValues`, ensuring that state updates trigger SwiftUI view updates automatically.
-
-Example:
+Pull a registered store into a SwiftUI view:
 
 ```swift
-struct ContentView: View {
+struct CounterView: View {
     @Shared(\.counterStore) var store
-    
+
     var body: some View {
-        Text("Count: \(store.state.count)")
+        Text("\(store.state.count)")
     }
 }
 ```
 
-### Inject Macro
-
-The `@Inject` macro provides a convenient way to define and inject dependencies. It simplifies dependency management by automatically generating a `StoreKey` for the property it is applied to, ensuring that the associated store can be accessed globally via `StoreValues`. This eliminates the need for manual dependency injection and makes the store easily accessible across different parts of the application. The macro works by creating a computed property backed by a global store repository, ensuring that instances are managed efficiently and consistently throughout the app lifecycle.
-
-Example:
+`@Shared` resolves the store from `StoreValues` once, at init time. The wrapped value is read-only — for test-time overrides use `StoreValues.withValues { ... }`:
 
 ```swift
-extension StoreValues {
-    @Inject var counterStore: Store<CounterReducer> = .init(initial: .init(), reducer: .init())
+StoreValues.withValues { values in
+    values.counterStore = Store(initial: .init(count: 42), reducer: CounterReducer())
+} operation: {
+    // store reads inside this closure see the override
 }
-
-/*
-Without `@Inject`, dependency injection must be handled manually by defining a store property and associating it with a unique key for global access.
-
-Example of manual dependency injection:
-
-fileprivate struct CounterStoreKey: StoreKey {
-    static let defaultValue: Store<CounterReducer> = .init(initial: .init(), reducer: .init())
-}
-
-extension StoreValues {
-    var counterStore: Store<CounterReducer> {
-        get { self[CounterStoreKey.self] }
-        set { self[CounterStoreKey.self] = newValue }
-    }
-}
-
-// Accessing the store:
-let store = StoreValues().counterStore
-
-// The key differences:
-1. With `@Inject`, the `StoreKey` is generated automatically, reducing boilerplate code.
-2. Without `@Inject`, developers must manually define and maintain `StoreKey` structures.
-3. `@Inject` dynamically retrieves the store instance via `StoreValues`, ensuring automatic injection and consistency.
-4. Using `@Inject` centralizes store initialization, reducing maintenance effort when store dependencies change.
-*/
 ```
 
-This automatically generates a `StoreKey` and allows accessing the store like:
+A `@Sendable` async overload exists for use inside `Task { … }`.
+
+## SwiftUI bindings
+
+`Store` exposes four `binding(...)` overloads for driving SwiftUI controls:
 
 ```swift
-@Shared(\.counterStore) var store
+// 1. Custom getter and action-returning setter
+store.binding(get: { someValue }, set: { .didChange($0) })
+
+// 2. Getter receives the state
+store.binding(get: \.someValue, set: { .didChange($0) })
+
+// 3. KeyPath + action factory
+store.binding(for: \.username, set: { .usernameChanged($0) })
+
+// 4. KeyPath + a single action dispatched on every change
+store.binding(for: \.isPresented, set: .didDismiss)
 ```
 
-This enables seamless access to the store within SwiftUI views using `@Shared`, ensuring that state updates propagate efficiently throughout the application.
+Getters capture the store strongly so SwiftUI never reads through a dangling reference; setters capture weakly so a discarded `Binding` does not extend the store's lifetime.
+
+## Logging
+
+FlowKit logs every action and resolved state through `os.Logger` (subsystem `flow-kit`, category `store-events`). Configure verbosity and action formatting at process start:
+
+```swift
+import os
+import FlowKit
+
+Logger.logLevel = .info          // .debug | .info | .error | .fault
+Logger.formatStyle = .short      // .full | .short | .abbreviated
+```
+
+Both properties are thread-safe.
+
+## Testing
+
+Tests run on `@MainActor` and create stores directly. The test target ships a `waitForStateChange` helper for asserting state after async effects:
+
+```swift
+let store = Store(initial: .init(), reducer: CounterReducer())
+store.send(.fetchData)
+
+try await waitForStateChange(timeout: 1) {
+    store.state.data != nil
+}
+```
+
+It observes `@Observable` notifications and falls back to short polling, so it returns as soon as the predicate flips.
 
 ## License
 
-This project is licensed under the MIT License. For details, see the [LICENSE](https://github.com/pfriedrix/FlowKit/blob/main/LICENSE) file.
-
----
-
+MIT — see [LICENSE](LICENSE).
