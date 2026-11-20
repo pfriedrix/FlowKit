@@ -66,13 +66,15 @@ struct CounterView: View {
 @MainActor
 @Observable
 public final class Store<R: Reducer> {
-    public var state: State
+    public private(set) var state: State
     public required init(initial: State, reducer: R)
     public func send(_ action: Action)
 }
 ```
 
 `send(_:)` runs the reducer synchronously on MainActor, commits the new state, then schedules any returned effect. In-flight `.run` effects are tracked in a per-store registry keyed by UUID and cancelled on `deinit`.
+
+`state` is read-only for callers; change it by sending an action.
 
 A second initializer is available when `State: Storable` — see [Persistence](#persistence).
 
