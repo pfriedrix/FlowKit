@@ -47,10 +47,10 @@ final public class Store<R: Reducer> {
         return full.components(separatedBy: ".").last ?? full
     }
 
-    /// Internal hook wired by the `Storable` integration in `Storage.swift`.
+    /// Internal hook wired by the `StateStorage` integration in `Storage.swift`.
     /// Invoked synchronously on MainActor after every successful reduce.
-    /// The `Storable` wiring dispatches the body onto a serial background
-    /// queue so encoding/UserDefaults writes stay off MainActor while
+    /// The storage wiring dispatches the body onto a serial background
+    /// queue so encoding and writes stay off MainActor while
     /// preserving per-action ordering. Not intended as a general-purpose hook.
     var willSave: (@Sendable (State) -> Void)? = nil
 

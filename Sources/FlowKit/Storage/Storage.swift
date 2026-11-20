@@ -3,44 +3,55 @@ import Foundation
 
 /// Extension of `Store` that adds persistent storage capabilities for state management.
 ///
-/// This extension allows the `Store` to automatically persist its state after each action
-/// and restore its state during initialization. It is designed to work with states that conform
-/// to the `Storable` protocol, which provides the `save` and `load` methods for managing persistence.
-///
-/// When using this extension, the store will automatically save the state after every action,
-/// ensuring that the application state is preserved across app launches and terminations.
-extension Store where State: Storable {
+/// A store created with a ``StateStorage`` restores its state from that storage during
+/// initialization and saves it there after every action, so the application state is
+/// preserved across app launches and terminations. Where the state goes is decided by
+/// the code that creates the store, not by the `State` type.
+extension Store {
 
-    /// Convenience initializer for `Store` that restores the state from storage if available.
+    /// Creates a store that restores its state from `storage` and saves it there after every action.
     ///
-    /// This initializer first attempts to restore the state from persistent storage using the `Storable.load()` method.
-    /// If a saved state is found and successfully loaded, it uses that state; otherwise, it defaults to the provided
-    /// `default` state. When using the default state, it immediately saves it to storage for future sessions.
+    /// This initializer first asks `storage` for a saved state. If one is found, the store starts
+    /// from it; otherwise it starts from the provided `default` state and immediately saves that
+    /// to `storage` for future sessions. After every action the new state is saved on a per-store
+    /// serial background queue, so saving stays off the main actor and keeps the order of actions.
     ///
     /// - Parameters:
     ///   - reducer: The reducer that handles state updates and actions.
     ///   - default: The default state to use if no saved state is found or restoration fails.
-    public convenience init(reducer: R, default state: State) {
-        let restored = Self.restore()
+    ///   - storage: Where the state is restored from and saved to.
+    public convenience init(reducer: R, default state: State, storage: some StateStorage<State>) {
+        let restored = storage.load()
         self.init(initial: restored ?? state, reducer: reducer)
         let queue = DispatchQueue(label: "flowkit.\(name).save", qos: .background)
-        willSave = { snapshot in queue.async { snapshot.save() } }
+        willSave = { snapshot in queue.async { storage.save(snapshot) } }
 
         if let _ = restored {
             logger.info("\(name): state restored from storage")
         } else {
             logger.info("\(name): using default state")
-            self.state.save()
+            storage.save(self.state)
         }
     }
+}
 
-    /// Restores the saved state from persistent storage.
+extension Store where State: Storable {
+
+    /// Convenience initializer for `Store` that restores the state through `Storable`.
     ///
-    /// This method uses the `Storable.load()` function to retrieve the state from persistent storage.
-    /// If no valid state is found, it returns `nil`, allowing the store to use the provided default.
+    /// Restores from `State.load()` if available, otherwise starts from `default` and saves it.
+    /// Every action is followed by `state.save()` on a per-store serial background queue.
     ///
-    /// - Returns: The restored state, or `nil` if no valid state is available.
-    private static func restore() -> State? {
-        State.load()
+    /// - Parameters:
+    ///   - reducer: The reducer that handles state updates and actions.
+    ///   - default: The default state to use if no saved state is found or restoration fails.
+    public convenience init(reducer: R, default state: State) {
+        self.init(reducer: reducer, default: state, storage: LegacyStorage<State>())
     }
+}
+
+/// Adapts a `Storable` state, which saves and loads itself, to ``StateStorage``.
+struct LegacyStorage<State: Storable>: StateStorage {
+    func load() -> State? { State.load() }
+    func save(_ state: State) { state.save() }
 }
