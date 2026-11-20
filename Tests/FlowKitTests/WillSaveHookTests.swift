@@ -4,7 +4,7 @@ import os
 
 // Whitebox tests for the internal `Store.willSave` hook.
 //
-// `willSave` is an internal implementation detail of the `Storable` integration
+// `willSave` is an internal implementation detail of the `StateStorage` integration
 // (see `Storage.swift` for the production wiring). It is reached here via
 // `@testable import FlowKit` to lock in the low-level invariants the integration
 // relies on: called once per reduce, in order, with the post-reduce state, and
