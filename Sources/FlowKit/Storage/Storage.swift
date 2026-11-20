@@ -35,6 +35,7 @@ extension Store {
     }
 }
 
+@available(*, deprecated, message: "Pass a storage instead: Store(reducer:default:storage:).")
 extension Store where State: Storable {
 
     /// Convenience initializer for `Store` that restores the state through `Storable`.
@@ -51,6 +52,7 @@ extension Store where State: Storable {
 }
 
 /// Adapts a `Storable` state, which saves and loads itself, to ``StateStorage``.
+@available(*, deprecated)
 struct LegacyStorage<State: Storable>: StateStorage {
     func load() -> State? { State.load() }
     func save(_ state: State) { state.save() }
