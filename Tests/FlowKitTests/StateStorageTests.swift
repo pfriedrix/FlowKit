@@ -1,5 +1,4 @@
 import XCTest
-import os
 @testable import FlowKit
 
 // Tests for `Store(reducer:default:storage:)` against in-memory storages:
@@ -23,39 +22,6 @@ private struct StoredCounterReducer: Reducer {
             state.value -= 1
         }
         return .none
-    }
-}
-
-/// Records every state it is asked to save, in arrival order, together with
-/// whether the save arrived on the main thread.
-private final class RecordingStorage<State: Sendable>: StateStorage {
-    private struct Save {
-        let state: State
-        let onMainThread: Bool
-    }
-
-    private let restoring: State?
-    private let lock = OSAllocatedUnfairLock(initialState: [Save]())
-
-    init(restoring: State? = nil) {
-        self.restoring = restoring
-    }
-
-    var saves: [State] {
-        lock.withLock { $0.map(\.state) }
-    }
-
-    var savesOnMainThread: [Bool] {
-        lock.withLock { $0.map(\.onMainThread) }
-    }
-
-    func load() -> State? {
-        restoring
-    }
-
-    func save(_ state: State) {
-        let save = Save(state: state, onMainThread: Thread.isMainThread)
-        lock.withLock { $0.append(save) }
     }
 }
 
