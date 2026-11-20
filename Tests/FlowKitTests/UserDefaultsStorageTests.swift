@@ -1,9 +1,8 @@
 import XCTest
 @testable import FlowKit
 
-// Tests for `UserDefaultsStorage`. Every test gets its own defaults suite, so
-// nothing is written to `UserDefaults.standard` and tests can't see each
-// other's data.
+// Tests for `UserDefaultsStorage` against a real `UserDefaults` suite of their
+// own: nothing is written to `UserDefaults.standard`.
 
 private struct CounterState: Codable, Equatable, Sendable {
     var value: Int = 0
@@ -48,24 +47,39 @@ private struct FailingToEncodeState: Codable, Sendable {
 @MainActor
 final class UserDefaultsStorageTests: XCTestCase {
 
-    private var suiteName = ""
-    private var defaults = UserDefaults.standard
+    /// One suite for the whole class. A suite per test would leave one plist
+    /// file per test behind: emptying a suite doesn't delete its file.
+    private static let suiteName = "flowkit.tests.UserDefaultsStorageTests"
+
+    private var defaults: UserDefaults!
+
+    /// Prefix of every key this test uses, so tests sharing the suite can't see
+    /// each other's data, even when run in parallel. Fresh for every test:
+    /// XCTest creates one test case instance per test method.
+    private let testID = UUID().uuidString
+
+    private func key(_ name: String) -> String {
+        "\(testID).\(name)"
+    }
 
     override func setUp() async throws {
         try await super.setUp()
-        suiteName = "flowkit.tests.\(UUID().uuidString)"
-        defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defaults = try XCTUnwrap(UserDefaults(suiteName: Self.suiteName))
     }
 
     override func tearDown() async throws {
-        defaults.removePersistentDomain(forName: suiteName)
+        let ownKeys = defaults.persistentDomain(forName: Self.suiteName)?.keys.filter { $0.hasPrefix(testID) } ?? []
+        for key in ownKeys {
+            defaults.removeObject(forKey: key)
+        }
+        defaults = nil
         try await super.tearDown()
     }
 
     // MARK: - Storage on its own
 
     func testLoadReturnsWhatWasSaved() {
-        let storage = UserDefaultsStorage<CounterState>(defaults, key: "counter")
+        let storage = UserDefaultsStorage<CounterState>(defaults, key: key("counter"))
 
         storage.save(CounterState(value: 7))
 
@@ -73,7 +87,7 @@ final class UserDefaultsStorageTests: XCTestCase {
     }
 
     func testLoadReturnsNilWhenNothingWasSaved() {
-        let storage = UserDefaultsStorage<CounterState>(defaults, key: "counter")
+        let storage = UserDefaultsStorage<CounterState>(defaults, key: key("counter"))
 
         XCTAssertNil(storage.load())
     }
@@ -83,29 +97,29 @@ final class UserDefaultsStorageTests: XCTestCase {
     /// silently wiping the data would make migration impossible.
     func testLoadReturnsNilButKeepsDataThatFailsToDecode() {
         let corrupted = Data("This is not JSON".utf8)
-        defaults.set(corrupted, forKey: "counter")
-        let storage = UserDefaultsStorage<CounterState>(defaults, key: "counter")
+        defaults.set(corrupted, forKey: key("counter"))
+        let storage = UserDefaultsStorage<CounterState>(defaults, key: key("counter"))
 
         XCTAssertNil(storage.load())
 
-        XCTAssertEqual(defaults.data(forKey: "counter"), corrupted)
+        XCTAssertEqual(defaults.data(forKey: key("counter")), corrupted)
     }
 
     /// `save(_:)` must handle encoder failures without crashing, and must NOT
     /// clobber previously saved, valid data when encoding throws.
     func testSaveKeepsPreviousDataWhenEncodingFails() {
         let previous = Data("previous valid blob".utf8)
-        defaults.set(previous, forKey: "failing")
-        let storage = UserDefaultsStorage<FailingToEncodeState>(defaults, key: "failing")
+        defaults.set(previous, forKey: key("failing"))
+        let storage = UserDefaultsStorage<FailingToEncodeState>(defaults, key: key("failing"))
 
         storage.save(FailingToEncodeState())
 
-        XCTAssertEqual(defaults.data(forKey: "failing"), previous)
+        XCTAssertEqual(defaults.data(forKey: key("failing")), previous)
     }
 
     func testStoragesUnderDifferentKeysDoNotSeeEachOther() {
-        let first = UserDefaultsStorage<CounterState>(defaults, key: "first")
-        let second = UserDefaultsStorage<CounterState>(defaults, key: "second")
+        let first = UserDefaultsStorage<CounterState>(defaults, key: key("first"))
+        let second = UserDefaultsStorage<CounterState>(defaults, key: key("second"))
 
         first.save(CounterState(value: 1))
         second.save(CounterState(value: 2))
@@ -117,7 +131,7 @@ final class UserDefaultsStorageTests: XCTestCase {
     // MARK: - Storage behind a store
 
     func testStoreRestoresStateSavedByPreviousStore() async throws {
-        let storage = UserDefaultsStorage<CounterState>(defaults, key: "counter")
+        let storage = UserDefaultsStorage<CounterState>(defaults, key: key("counter"))
         let first = Store(reducer: DefaultsCounterReducer(), default: CounterState(), storage: storage)
         first.send(.increment)
         first.send(.increment)
@@ -126,27 +140,27 @@ final class UserDefaultsStorageTests: XCTestCase {
         let second = Store(
             reducer: DefaultsCounterReducer(),
             default: CounterState(),
-            storage: .userDefaults(defaults, key: "counter")
+            storage: .userDefaults(defaults, key: key("counter"))
         )
 
         XCTAssertEqual(second.state.value, 2)
     }
 
     func testStoreStartsFromDefaultWhenSavedDataIsCorrupted() {
-        defaults.set(Data("This is not JSON".utf8), forKey: "counter")
+        defaults.set(Data("This is not JSON".utf8), forKey: key("counter"))
 
         let store = Store(
             reducer: DefaultsCounterReducer(),
             default: CounterState(value: 10),
-            storage: .userDefaults(defaults, key: "counter")
+            storage: .userDefaults(defaults, key: key("counter"))
         )
 
         XCTAssertEqual(store.state.value, 10)
     }
 
     func testStoresWithSameStateTypeUnderDifferentKeysPersistIndependently() async throws {
-        let firstStorage = UserDefaultsStorage<CounterState>(defaults, key: "first")
-        let secondStorage = UserDefaultsStorage<CounterState>(defaults, key: "second")
+        let firstStorage = UserDefaultsStorage<CounterState>(defaults, key: key("first"))
+        let secondStorage = UserDefaultsStorage<CounterState>(defaults, key: key("second"))
         let first = Store(reducer: DefaultsCounterReducer(), default: CounterState(), storage: firstStorage)
         let second = Store(reducer: DefaultsCounterReducer(), default: CounterState(value: 100), storage: secondStorage)
 
@@ -164,7 +178,7 @@ final class UserDefaultsStorageTests: XCTestCase {
     /// The key is chosen by whoever creates the store, so a state type can be
     /// renamed or moved without losing what was saved under that key.
     func testSavedStateSurvivesRenamingTheStateType() async throws {
-        let storage = UserDefaultsStorage<CounterState>(defaults, key: "counter")
+        let storage = UserDefaultsStorage<CounterState>(defaults, key: key("counter"))
         let original = Store(reducer: DefaultsCounterReducer(), default: CounterState(), storage: storage)
         original.send(.increment)
         try await waitForStateChange(timeout: 2.0) { storage.load()?.value == 1 }
@@ -172,20 +186,19 @@ final class UserDefaultsStorageTests: XCTestCase {
         let renamed = Store(
             reducer: RenamedCounterReducer(),
             default: RenamedCounterState(),
-            storage: .userDefaults(defaults, key: "counter")
+            storage: .userDefaults(defaults, key: key("counter"))
         )
 
         XCTAssertEqual(renamed.state.value, 1)
     }
 
     func testNothingIsWrittenToStandardDefaults() async throws {
-        let key = "flowkit.tests.standard-probe.\(UUID().uuidString)"
-        let storage = UserDefaultsStorage<CounterState>(defaults, key: key)
+        let storage = UserDefaultsStorage<CounterState>(defaults, key: key("counter"))
         let store = Store(reducer: DefaultsCounterReducer(), default: CounterState(), storage: storage)
 
         store.send(.increment)
         try await waitForStateChange(timeout: 2.0) { storage.load()?.value == 1 }
 
-        XCTAssertNil(UserDefaults.standard.object(forKey: key))
+        XCTAssertNil(UserDefaults.standard.object(forKey: key("counter")))
     }
 }
