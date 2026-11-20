@@ -30,7 +30,10 @@ final public class Store<R: Reducer> {
     public typealias Action = R.Action
 
     /// The current state of the store.
-    public var state: State
+    ///
+    /// Read-only outside the store: the only way to change it is `send(_:)`,
+    /// which runs the reducer, fires the save hook, and logs the action.
+    public private(set) var state: State
 
     /// The reducer responsible for handling actions and updating the state.
     let reducer: R
