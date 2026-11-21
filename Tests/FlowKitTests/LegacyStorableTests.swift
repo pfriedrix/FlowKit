@@ -64,7 +64,7 @@ private struct LegacyReducerB: Reducer {
 }
 
 /// `LegacyReducerA` after migration: the state is plain `Codable` and the store
-/// is given a storage.
+/// is given a persistence.
 private struct MigratedReducer: Reducer {
     struct State: Codable, Equatable, Sendable {
         var value: String
@@ -155,14 +155,14 @@ final class LegacyStorableTests: XCTestCase {
 
     /// Data saved by `Persistable` stays readable after the state stops
     /// conforming to it: the store is given the key `Persistable` used.
-    func testDataSavedByPersistableIsRestoredThroughUserDefaultsStorage() {
+    func testDataSavedByPersistableIsRestoredThroughUserDefaultsPersistence() {
         LegacyReducerA.State(value: "Saved before migration").save()
         let legacyKey = String(reflecting: LegacyReducerA.State.self)
 
         let store = Store(
             reducer: MigratedReducer(),
             default: .init(value: "Default"),
-            storage: .userDefaults(key: legacyKey)
+            persistence: .userDefaults(key: legacyKey)
         )
 
         XCTAssertEqual(store.state.value, "Saved before migration")

@@ -1,7 +1,7 @@
 import XCTest
 @testable import FlowKit
 
-// Tests for `UserDefaultsStorage` against a real `UserDefaults` suite of their
+// Tests for `UserDefaultsPersistence` against a real `UserDefaults` suite of their
 // own: nothing is written to `UserDefaults.standard`.
 
 private struct CounterState: Codable, Equatable, Sendable {
@@ -45,11 +45,11 @@ private struct FailingToEncodeState: Codable, Sendable {
 }
 
 @MainActor
-final class UserDefaultsStorageTests: XCTestCase {
+final class UserDefaultsPersistenceTests: XCTestCase {
 
     /// One suite for the whole class. A suite per test would leave one plist
     /// file per test behind: emptying a suite doesn't delete its file.
-    private static let suiteName = "flowkit.tests.UserDefaultsStorageTests"
+    private static let suiteName = "flowkit.tests.UserDefaultsPersistenceTests"
 
     private var defaults: UserDefaults!
 
@@ -76,20 +76,20 @@ final class UserDefaultsStorageTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // MARK: - Storage on its own
+    // MARK: - Persistence on its own
 
     func testLoadReturnsWhatWasSaved() {
-        let storage = UserDefaultsStorage<CounterState>(defaults, key: key("counter"))
+        let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
 
-        storage.save(CounterState(value: 7))
+        persistence.save(CounterState(value: 7))
 
-        XCTAssertEqual(storage.load(), CounterState(value: 7))
+        XCTAssertEqual(persistence.load(), CounterState(value: 7))
     }
 
     func testLoadReturnsNilWhenNothingWasSaved() {
-        let storage = UserDefaultsStorage<CounterState>(defaults, key: key("counter"))
+        let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
 
-        XCTAssertNil(storage.load())
+        XCTAssertNil(persistence.load())
     }
 
     /// `load()` must return nil on decode failure, but must NOT delete the saved
@@ -98,9 +98,9 @@ final class UserDefaultsStorageTests: XCTestCase {
     func testLoadReturnsNilButKeepsDataThatFailsToDecode() {
         let corrupted = Data("This is not JSON".utf8)
         defaults.set(corrupted, forKey: key("counter"))
-        let storage = UserDefaultsStorage<CounterState>(defaults, key: key("counter"))
+        let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
 
-        XCTAssertNil(storage.load())
+        XCTAssertNil(persistence.load())
 
         XCTAssertEqual(defaults.data(forKey: key("counter")), corrupted)
     }
@@ -110,16 +110,16 @@ final class UserDefaultsStorageTests: XCTestCase {
     func testSaveKeepsPreviousDataWhenEncodingFails() {
         let previous = Data("previous valid blob".utf8)
         defaults.set(previous, forKey: key("failing"))
-        let storage = UserDefaultsStorage<FailingToEncodeState>(defaults, key: key("failing"))
+        let persistence = UserDefaultsPersistence<FailingToEncodeState>(defaults, key: key("failing"))
 
-        storage.save(FailingToEncodeState())
+        persistence.save(FailingToEncodeState())
 
         XCTAssertEqual(defaults.data(forKey: key("failing")), previous)
     }
 
-    func testStoragesUnderDifferentKeysDoNotSeeEachOther() {
-        let first = UserDefaultsStorage<CounterState>(defaults, key: key("first"))
-        let second = UserDefaultsStorage<CounterState>(defaults, key: key("second"))
+    func testDifferentKeysDoNotSeeEachOther() {
+        let first = UserDefaultsPersistence<CounterState>(defaults, key: key("first"))
+        let second = UserDefaultsPersistence<CounterState>(defaults, key: key("second"))
 
         first.save(CounterState(value: 1))
         second.save(CounterState(value: 2))
@@ -128,19 +128,19 @@ final class UserDefaultsStorageTests: XCTestCase {
         XCTAssertEqual(second.load(), CounterState(value: 2))
     }
 
-    // MARK: - Storage behind a store
+    // MARK: - Persistence behind a store
 
     func testStoreRestoresStateSavedByPreviousStore() async throws {
-        let storage = UserDefaultsStorage<CounterState>(defaults, key: key("counter"))
-        let first = Store(reducer: DefaultsCounterReducer(), default: CounterState(), storage: storage)
+        let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
+        let first = Store(reducer: DefaultsCounterReducer(), default: CounterState(), persistence: persistence)
         first.send(.increment)
         first.send(.increment)
-        try await waitForStateChange(timeout: 2.0) { storage.load()?.value == 2 }
+        try await waitForStateChange(timeout: 2.0) { persistence.load()?.value == 2 }
 
         let second = Store(
             reducer: DefaultsCounterReducer(),
             default: CounterState(),
-            storage: .userDefaults(defaults, key: key("counter"))
+            persistence: .userDefaults(defaults, key: key("counter"))
         )
 
         XCTAssertEqual(second.state.value, 2)
@@ -152,52 +152,52 @@ final class UserDefaultsStorageTests: XCTestCase {
         let store = Store(
             reducer: DefaultsCounterReducer(),
             default: CounterState(value: 10),
-            storage: .userDefaults(defaults, key: key("counter"))
+            persistence: .userDefaults(defaults, key: key("counter"))
         )
 
         XCTAssertEqual(store.state.value, 10)
     }
 
     func testStoresWithSameStateTypeUnderDifferentKeysPersistIndependently() async throws {
-        let firstStorage = UserDefaultsStorage<CounterState>(defaults, key: key("first"))
-        let secondStorage = UserDefaultsStorage<CounterState>(defaults, key: key("second"))
-        let first = Store(reducer: DefaultsCounterReducer(), default: CounterState(), storage: firstStorage)
-        let second = Store(reducer: DefaultsCounterReducer(), default: CounterState(value: 100), storage: secondStorage)
+        let firstPersistence = UserDefaultsPersistence<CounterState>(defaults, key: key("first"))
+        let secondPersistence = UserDefaultsPersistence<CounterState>(defaults, key: key("second"))
+        let first = Store(reducer: DefaultsCounterReducer(), default: CounterState(), persistence: firstPersistence)
+        let second = Store(reducer: DefaultsCounterReducer(), default: CounterState(value: 100), persistence: secondPersistence)
 
         first.send(.increment)
         second.send(.increment)
         second.send(.increment)
 
         try await waitForStateChange(timeout: 2.0) {
-            firstStorage.load()?.value == 1 && secondStorage.load()?.value == 102
+            firstPersistence.load()?.value == 1 && secondPersistence.load()?.value == 102
         }
-        XCTAssertEqual(firstStorage.load()?.value, 1)
-        XCTAssertEqual(secondStorage.load()?.value, 102)
+        XCTAssertEqual(firstPersistence.load()?.value, 1)
+        XCTAssertEqual(secondPersistence.load()?.value, 102)
     }
 
     /// The key is chosen by whoever creates the store, so a state type can be
     /// renamed or moved without losing what was saved under that key.
     func testSavedStateSurvivesRenamingTheStateType() async throws {
-        let storage = UserDefaultsStorage<CounterState>(defaults, key: key("counter"))
-        let original = Store(reducer: DefaultsCounterReducer(), default: CounterState(), storage: storage)
+        let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
+        let original = Store(reducer: DefaultsCounterReducer(), default: CounterState(), persistence: persistence)
         original.send(.increment)
-        try await waitForStateChange(timeout: 2.0) { storage.load()?.value == 1 }
+        try await waitForStateChange(timeout: 2.0) { persistence.load()?.value == 1 }
 
         let renamed = Store(
             reducer: RenamedCounterReducer(),
             default: RenamedCounterState(),
-            storage: .userDefaults(defaults, key: key("counter"))
+            persistence: .userDefaults(defaults, key: key("counter"))
         )
 
         XCTAssertEqual(renamed.state.value, 1)
     }
 
     func testNothingIsWrittenToStandardDefaults() async throws {
-        let storage = UserDefaultsStorage<CounterState>(defaults, key: key("counter"))
-        let store = Store(reducer: DefaultsCounterReducer(), default: CounterState(), storage: storage)
+        let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
+        let store = Store(reducer: DefaultsCounterReducer(), default: CounterState(), persistence: persistence)
 
         store.send(.increment)
-        try await waitForStateChange(timeout: 2.0) { storage.load()?.value == 1 }
+        try await waitForStateChange(timeout: 2.0) { persistence.load()?.value == 1 }
 
         XCTAssertNil(UserDefaults.standard.object(forKey: key("counter")))
     }

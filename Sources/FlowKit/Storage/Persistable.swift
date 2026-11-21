@@ -6,7 +6,7 @@ import Foundation
 /// to and from `UserDefaults.standard` using `Codable` conformance, under a key
 /// derived from the type name.
 ///
-/// Deprecated: conform the state to `Codable` and give the store a storage with
+/// Deprecated: conform the state to `Codable` and give the store a persistence with
 /// an explicit key instead. To keep reading data that `Persistable` saved, pass
 /// the key it used, which is `String(reflecting:)` of the state type:
 ///
@@ -17,9 +17,9 @@ import Foundation
 ///
 /// // after
 /// struct AppState: Codable { ... }
-/// Store(reducer: AppReducer(), default: AppState(), storage: .userDefaults(key: "MyApp.AppState"))
+/// Store(reducer: AppReducer(), default: AppState(), persistence: .userDefaults(key: "MyApp.AppState"))
 /// ```
-@available(*, deprecated, message: "Conform to Codable and pass storage: .userDefaults(key:) to Store(reducer:default:storage:).")
+@available(*, deprecated, message: "Conform to Codable and pass persistence: .userDefaults(key:) to Store(reducer:default:persistence:).")
 public protocol Persistable: Storable, Codable { }
 
 @available(*, deprecated)
@@ -40,20 +40,20 @@ extension Persistable {
 
     /// Saves the current state to `UserDefaults.standard` under the type-derived `key`.
     ///
-    /// Goes through ``UserDefaultsStorage``, so the stored format and the handling
-    /// of encoding failures are the same as for `storage: .userDefaults(key:)`.
+    /// Goes through ``UserDefaultsPersistence``, so the stored format and the handling
+    /// of encoding failures are the same as for `persistence: .userDefaults(key:)`.
     public func save() {
-        UserDefaultsStorage<Self>(key: Self.key).save(self)
+        UserDefaultsPersistence<Self>(key: Self.key).save(self)
     }
 
     /// Loads the state from `UserDefaults.standard` under the type-derived `key`.
     ///
-    /// Goes through ``UserDefaultsStorage``, so the stored format and the handling
-    /// of decoding failures are the same as for `storage: .userDefaults(key:)`.
+    /// Goes through ``UserDefaultsPersistence``, so the stored format and the handling
+    /// of decoding failures are the same as for `persistence: .userDefaults(key:)`.
     ///
     /// - Returns: The decoded instance if successful, or `nil` if decoding fails or no
     ///   data is found.
     public static func load() -> Self? {
-        UserDefaultsStorage<Self>(key: key).load()
+        UserDefaultsPersistence<Self>(key: key).load()
     }
 }

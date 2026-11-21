@@ -76,7 +76,7 @@ public final class Store<R: Reducer> {
 
 `state` is read-only for callers; change it by sending an action.
 
-A second initializer, `init(reducer:default:storage:)`, restores the state from a storage and saves it there after every action — see [Persistence](#persistence).
+A second initializer, `init(reducer:default:persistence:)`, restores the state and saves it after every action — see [Persistence](#persistence).
 
 ## Reducer
 
@@ -140,39 +140,39 @@ return .send(\.analyticsStore, action: .screenViewed)
 
 ## Persistence
 
-A store persists its state when it is created with a storage. The code that creates the store picks the storage, so the `State` type doesn't need to know where it is kept:
+A store persists its state when it is created with a `persistence:`. The code that creates the store picks where the state goes, so the `State` type doesn't need to know where it is kept:
 
 ```swift
 let store = Store(
     reducer: AppReducer(),
     default: AppState(),
-    storage: .userDefaults(key: "app")
+    persistence: .userDefaults(key: "app")
 )
 ```
 
-This restores from `storage.load()` if available, otherwise starts from `default` and saves it. After every `send(_:)` the new state goes to `storage.save(_:)` on a per-store serial background queue, so saving stays off MainActor and keeps the order of actions.
+This restores from `persistence.load()` if available, otherwise starts from `default` and saves it. After every `send(_:)` the new state goes to `persistence.save(_:)` on a per-store serial background queue, so saving stays off MainActor and keeps the order of actions.
 
-### StateStorage
+### The Persistence protocol
 
 ```swift
-public protocol StateStorage<State>: Sendable {
+public protocol Persistence<State>: Sendable {
     associatedtype State
     func load() -> State?
     func save(_ state: State)
 }
 ```
 
-Two storages ship with FlowKit:
+FlowKit ships two:
 
 - `.userDefaults(_:key:)` — keeps a `Codable` state as JSON in `UserDefaults`. It uses `.standard` unless you pass a suite, e.g. `.userDefaults(UserDefaults(suiteName: "group.my.app")!, key: "app")` for an App Group.
-- `InMemoryStorage` — keeps the state in memory, for tests and headless runs.
+- `InMemoryPersistence` — keeps the state in memory, for tests and headless runs.
 
 The key is yours, not derived from the type name: renaming or moving the state type doesn't lose saved data, and two stores with the same `State` persist independently under different keys.
 
-For another backing store (Keychain, files, SwiftData…) conform a small type to `StateStorage`:
+For another backing store (Keychain, files, SwiftData…) conform a small type to `Persistence`:
 
 ```swift
-struct FileStorage<State: Codable>: StateStorage {
+struct FilePersistence<State: Codable>: Persistence {
     let url: URL
 
     func load() -> State? {
@@ -189,11 +189,11 @@ struct FileStorage<State: Codable>: StateStorage {
 
 ### Testing a persistent store
 
-`InMemoryStorage` starts a store from any saved state and shows what the store saved, without touching `UserDefaults`:
+`InMemoryPersistence` starts a store from any saved state and shows what the store saved, without touching `UserDefaults`:
 
 ```swift
-let memory = InMemoryStorage(AppState(isLoggedIn: true))
-let store = Store(reducer: AppReducer(), default: AppState(), storage: memory)
+let memory = InMemoryPersistence(AppState(isLoggedIn: true))
+let store = Store(reducer: AppReducer(), default: AppState(), persistence: memory)
 
 store.send(.logout)
 
@@ -218,13 +218,13 @@ struct AppState: Codable, Equatable { … }
 let store = Store(
     reducer: AppReducer(),
     default: AppState(),
-    storage: .userDefaults(key: "MyApp.AppState")
+    persistence: .userDefaults(key: "MyApp.AppState")
 )
 ```
 
 `Persistable` saved to `UserDefaults.standard` under `String(reflecting: AppState.self)`. To keep reading that data, print this string once and pass it as the key, written out as a literal. The stored format is the same.
 
-A state that implemented `Storable` by hand moves the bodies of `save()` and `load()` into a `StateStorage` type.
+A state that implemented `Storable` by hand moves the bodies of `save()` and `load()` into a `Persistence` type.
 
 ## Dependency injection
 

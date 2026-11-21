@@ -3,7 +3,7 @@ import SwiftUI
 @testable import FlowKit
 
 /// Bindings on a store that persists its state: writing through a binding
-/// dispatches the action, and the resulting state reaches the storage.
+/// dispatches the action, and the resulting state reaches the persistence.
 final class PersistedBindingTests: XCTestCase {
 
     struct AppReducer: Reducer {
@@ -65,11 +65,11 @@ final class PersistedBindingTests: XCTestCase {
 
     /// Where the store under test saves its state. Fresh for every test:
     /// XCTest creates one test case instance per test method.
-    private let memory = InMemoryStorage<AppReducer.State>()
+    private let memory = InMemoryPersistence<AppReducer.State>()
 
     @MainActor
     func createStore() -> Store<AppReducer> {
-        return Store(reducer: AppReducer(), default: AppReducer.State(), storage: memory)
+        return Store(reducer: AppReducer(), default: AppReducer.State(), persistence: memory)
     }
 
     // MARK: - Test Cases

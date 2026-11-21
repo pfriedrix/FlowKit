@@ -4,8 +4,8 @@ import Foundation
 ///
 /// Deprecated: with `Storable` the state type decides where it is persisted, so
 /// every store with that state shares one place. Give the store a
-/// ``StateStorage`` instead and the state type no longer needs to know.
-@available(*, deprecated, message: "Pass a StateStorage to Store(reducer:default:storage:) instead of making the state save and load itself.")
+/// ``Persistence`` instead and the state type no longer needs to know.
+@available(*, deprecated, message: "Pass a Persistence to Store(reducer:default:persistence:) instead of making the state save and load itself.")
 public protocol Storable {
 
     /// Saves the current state to persistent storage.

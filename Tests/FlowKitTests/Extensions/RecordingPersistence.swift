@@ -2,14 +2,14 @@ import Foundation
 import os
 @testable import FlowKit
 
-/// A storage that records every state it is asked to save, in arrival order,
+/// A persistence that records every state it is asked to save, in arrival order,
 /// together with whether the save arrived on the main thread.
 ///
 /// Saves land on the store's background queue, so a test waits for the number
 /// of saves it expects (`saves.count`) before asserting. That stays correct
 /// when the final state equals an earlier one, where waiting on the value
 /// alone could stop at the earlier save.
-final class RecordingStorage<State: Sendable>: StateStorage {
+final class RecordingPersistence<State: Sendable>: Persistence {
     private struct Save {
         let state: State
         let onMainThread: Bool

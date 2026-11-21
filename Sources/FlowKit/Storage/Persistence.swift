@@ -1,11 +1,11 @@
 /// A place where a store's state is persisted.
 ///
-/// A storage is handed to ``Store/init(reducer:default:storage:)`` by whoever
-/// creates the store, so the `State` type itself doesn't need to know where it
+/// Whoever creates a store hands it a persistence through
+/// ``Store/init(reducer:default:persistence:)``, so the `State` type itself doesn't need to know where it
 /// is kept. Two stores with the same `State` persist independently as long as
-/// they are given different storages.
+/// they are given different ones.
 ///
-/// The store calls a storage like this:
+/// The store calls it like this:
 ///
 /// - ``load()`` once, synchronously, while the store is being initialized.
 /// - ``save(_:)`` after every action, on the store's own serial background
@@ -16,7 +16,7 @@
 /// actor.
 ///
 /// ```swift
-/// struct FileStorage<State: Codable>: StateStorage {
+/// struct FilePersistence<State: Codable>: Persistence {
 ///     let url: URL
 ///
 ///     func load() -> State? {
@@ -30,9 +30,9 @@
 ///     }
 /// }
 /// ```
-public protocol StateStorage<State>: Sendable {
+public protocol Persistence<State>: Sendable {
 
-    /// The type of state this storage keeps.
+    /// The type of state this persistence keeps.
     associatedtype State
 
     /// Loads the previously saved state.

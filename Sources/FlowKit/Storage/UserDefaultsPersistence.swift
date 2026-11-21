@@ -1,6 +1,6 @@
 public import Foundation
 
-/// A ``StateStorage`` that keeps a `Codable` state as JSON in `UserDefaults`.
+/// A ``Persistence`` that keeps a `Codable` state as JSON in `UserDefaults`.
 ///
 /// Both the defaults database and the key are chosen by the caller, so the
 /// saved data doesn't depend on the name of the state type:
@@ -9,16 +9,16 @@ public import Foundation
 /// let store = Store(
 ///     reducer: AppReducer(),
 ///     default: AppState(),
-///     storage: .userDefaults(key: "app")
+///     persistence: .userDefaults(key: "app")
 /// )
 /// ```
-public struct UserDefaultsStorage<State: Codable>: StateStorage {
+public struct UserDefaultsPersistence<State: Codable>: Persistence {
 
     // `UserDefaults` is documented as thread-safe but isn't annotated `Sendable`.
     nonisolated(unsafe) private let defaults: UserDefaults
     private let key: String
 
-    /// Creates a storage that reads and writes `key` in `defaults`.
+    /// Creates a persistence that reads and writes `key` in `defaults`.
     ///
     /// - Parameters:
     ///   - defaults: The defaults database to use. Pass a suite to share state
@@ -66,9 +66,9 @@ public struct UserDefaultsStorage<State: Codable>: StateStorage {
     }
 }
 
-extension StateStorage {
+extension Persistence {
 
-    /// A storage that keeps a `Codable` state as JSON in `UserDefaults`.
+    /// A persistence that keeps a `Codable` state as JSON in `UserDefaults`.
     ///
     /// - Parameters:
     ///   - defaults: The defaults database to use. Defaults to `.standard`.
@@ -76,7 +76,7 @@ extension StateStorage {
     public static func userDefaults<S: Codable>(
         _ defaults: UserDefaults = .standard,
         key: String
-    ) -> Self where Self == UserDefaultsStorage<S> {
-        UserDefaultsStorage(defaults, key: key)
+    ) -> Self where Self == UserDefaultsPersistence<S> {
+        UserDefaultsPersistence(defaults, key: key)
     }
 }
