@@ -165,11 +165,21 @@ struct StoreTests {
         #expect(store.state.anotherStateProperty == 20)
     }
     
+    /// Swift Testing runs suites in parallel, and they all share MainActor. Thousands of
+    /// synchronous sends in one go hold MainActor for over a second on CI, long enough for
+    /// other suites' `waitForStateChange` timeouts to fire. Yield between bursts instead.
+    private func yieldAfterBurst(_ sent: Int) async {
+        if sent.isMultiple(of: 500) {
+            await Task.yield()
+        }
+    }
+
     @Test func `High frequency action dispatch`() async throws {
         // Dispatch a single action repeatedly at high frequency
         let repeatCount = 10_000
-        for _ in 0..<repeatCount {
+        for i in 1...repeatCount {
             store.send(.increment)
+            await yieldAfterBurst(i)
         }
         
         // Wait for all actions to be processed
@@ -190,6 +200,7 @@ struct StoreTests {
             } else {
                 store.send(.setMessage("Message \(i)"))
             }
+            await yieldAfterBurst(i + 1)
         }
         
         // Wait for all actions to be processed
@@ -202,7 +213,7 @@ struct StoreTests {
         #expect(store.state.message == "Message \(repeatCount - 1)", "The message should reflect the last setMessage action.")
     }
     
-    @Test func `High frequency actions with interruptions`() {
+    @Test func `High frequency actions with interruptions`() async {
         let totalPrimaryActions = 10_000
         let interruptionInterval = 100
 
@@ -211,6 +222,7 @@ struct StoreTests {
             if i.isMultiple(of: interruptionInterval) {
                 store.send(.num)
             }
+            await yieldAfterBurst(i)
         }
 
         #expect(store.state.count == totalPrimaryActions)
