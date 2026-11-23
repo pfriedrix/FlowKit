@@ -67,7 +67,7 @@ struct AnimationEffectTests {
         let store = Store(initial: AnimationReducer.State(), reducer: AnimationReducer())
         store.send(.animatedRun)
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.count == 1
         }
 

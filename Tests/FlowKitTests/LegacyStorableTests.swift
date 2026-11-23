@@ -121,7 +121,7 @@ final class LegacyStorableTests {
         store.send(.increment)
         store.send(.increment)
 
-        try await waitForStateChange(timeout: 2.0) { SelfStoringReducer.State.load()?.value == 2 }
+        try await waitForStateChange(timeout: 5.0) { SelfStoringReducer.State.load()?.value == 2 }
         #expect(SelfStoringReducer.State.load()?.value == 2)
     }
 
@@ -156,7 +156,7 @@ final class LegacyStorableTests {
     @Test func `Store restores and saves Persistable state`() async throws {
         let first = Store(reducer: LegacyReducerA(), default: .init(value: "Initial"))
         first.send(.update("Updated"))
-        try await waitForStateChange(timeout: 2.0) { LegacyReducerA.State.load()?.value == "Updated" }
+        try await waitForStateChange(timeout: 5.0) { LegacyReducerA.State.load()?.value == "Updated" }
 
         let second = Store(reducer: LegacyReducerA(), default: .init(value: "Initial"))
 

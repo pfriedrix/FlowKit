@@ -136,7 +136,7 @@ final class UserDefaultsPersistenceTests {
         let first = Store(reducer: DefaultsCounterReducer(), default: CounterState(), persistence: persistence)
         first.send(.increment)
         first.send(.increment)
-        try await waitForStateChange(timeout: 2.0) { persistence.load()?.value == 2 }
+        try await waitForStateChange(timeout: 5.0) { persistence.load()?.value == 2 }
 
         let second = Store(
             reducer: DefaultsCounterReducer(),
@@ -169,7 +169,7 @@ final class UserDefaultsPersistenceTests {
         second.send(.increment)
         second.send(.increment)
 
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             firstPersistence.load()?.value == 1 && secondPersistence.load()?.value == 102
         }
         #expect(firstPersistence.load()?.value == 1)
@@ -182,7 +182,7 @@ final class UserDefaultsPersistenceTests {
         let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
         let original = Store(reducer: DefaultsCounterReducer(), default: CounterState(), persistence: persistence)
         original.send(.increment)
-        try await waitForStateChange(timeout: 2.0) { persistence.load()?.value == 1 }
+        try await waitForStateChange(timeout: 5.0) { persistence.load()?.value == 1 }
 
         let renamed = Store(
             reducer: RenamedCounterReducer(),
@@ -198,7 +198,7 @@ final class UserDefaultsPersistenceTests {
         let store = Store(reducer: DefaultsCounterReducer(), default: CounterState(), persistence: persistence)
 
         store.send(.increment)
-        try await waitForStateChange(timeout: 2.0) { persistence.load()?.value == 1 }
+        try await waitForStateChange(timeout: 5.0) { persistence.load()?.value == 1 }
 
         #expect(UserDefaults.standard.object(forKey: key("counter")) == nil)
     }

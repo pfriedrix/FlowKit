@@ -43,7 +43,7 @@ struct TaskLifecycleTests {
         // With lock-based cleanup, removeValue runs on the background thread immediately
         // after the operation finishes — potentially before send(.taskCompleted) is
         // dispatched to MainActor. Wait for both to avoid a flaky assertion.
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.tasks.isEmpty && store.state.completedCount == 1
         }
 
@@ -58,7 +58,7 @@ struct TaskLifecycleTests {
         store.send(.startShortTask)
         #expect(store.tasks.count == 1, "Task must be registered synchronously before async body runs")
 
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.tasks.isEmpty
         }
 
@@ -75,7 +75,7 @@ struct TaskLifecycleTests {
 
         #expect(store.tasks.count == 3, "All three tasks must be registered")
 
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.completedCount == 3 && store.tasks.isEmpty
         }
 

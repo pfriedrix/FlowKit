@@ -257,7 +257,7 @@ struct EffectSharedTests {
 
         await send(\.manualLoggerStore, action: .log("direct"))
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.manualLoggerStore.state.logs == ["direct"]
         }
         #expect(manualLoggerStore.state.logs == ["direct"])

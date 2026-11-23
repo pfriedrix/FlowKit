@@ -21,7 +21,7 @@ struct StoreTests {
         store.send(.increment)
         
         // Wait for state change
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 1
         }
         
@@ -33,7 +33,7 @@ struct StoreTests {
         store.send(.setMessage("Hello, World!"))
         
         // Wait for state change
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.message == "Hello, World!"
         }
         
@@ -45,7 +45,7 @@ struct StoreTests {
         store.send(.incrementAndSetMessage("Updated"))
         
         // Wait for state change
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 1 && self.store.state.message == "Updated"
         }
         
@@ -61,7 +61,7 @@ struct StoreTests {
         recursiveStore.send(.triggerRecursion)
         
         // Wait for state change
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             recursiveStore.state.value == 2
         }
         
@@ -76,7 +76,7 @@ struct StoreTests {
         store.send(.increment)
         
         // Wait for the state to reflect all changes
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 3 && self.store.state.message == "Message After Two Increments"
         }
         
@@ -91,7 +91,7 @@ struct StoreTests {
         store.send(.incrementAndSetMessage("Updated Message"))
 
         // Wait for both actions to take effect
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 1 && self.store.state.message == "Updated Message"
         }
 
@@ -107,7 +107,7 @@ struct StoreTests {
         store.send(.setMessage("Third Message"))
         
         // Wait for the state to reflect the last update
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.message == "Third Message"
         }
         
@@ -124,7 +124,7 @@ struct StoreTests {
         store.send(.setMessage("Message 2"))
         store.send(.increment)
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.count == 1 && store.state.message == "Message 2"
         }
 
@@ -157,7 +157,7 @@ struct StoreTests {
         store.send(.complexMutation("Update 2", 20))
         
         // Wait for the state to reflect all changes
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.someStateProperty == "Update 2" && store.state.anotherStateProperty == 20
         }
         
@@ -165,11 +165,23 @@ struct StoreTests {
         #expect(store.state.anotherStateProperty == 20)
     }
     
+    /// Swift Testing runs suites in parallel, and they all share MainActor. Thousands of
+    /// synchronous sends in one go hold MainActor for over a second on CI, long enough for
+    /// other suites' `waitForStateChange` timeouts to fire. Yield between bursts instead.
+    /// A burst of 50 takes about 7ms on CI. The three tests that use this run at the
+    /// same time, so a waiting test sits behind up to three bursts per MainActor hop.
+    private func yieldAfterBurst(_ sent: Int) async {
+        if sent.isMultiple(of: 50) {
+            await Task.yield()
+        }
+    }
+
     @Test func `High frequency action dispatch`() async throws {
         // Dispatch a single action repeatedly at high frequency
         let repeatCount = 10_000
-        for _ in 0..<repeatCount {
+        for i in 1...repeatCount {
             store.send(.increment)
+            await yieldAfterBurst(i)
         }
         
         // Wait for all actions to be processed
@@ -190,6 +202,7 @@ struct StoreTests {
             } else {
                 store.send(.setMessage("Message \(i)"))
             }
+            await yieldAfterBurst(i + 1)
         }
         
         // Wait for all actions to be processed
@@ -202,7 +215,7 @@ struct StoreTests {
         #expect(store.state.message == "Message \(repeatCount - 1)", "The message should reflect the last setMessage action.")
     }
     
-    @Test func `High frequency actions with interruptions`() {
+    @Test func `High frequency actions with interruptions`() async {
         let totalPrimaryActions = 10_000
         let interruptionInterval = 100
 
@@ -211,6 +224,7 @@ struct StoreTests {
             if i.isMultiple(of: interruptionInterval) {
                 store.send(.num)
             }
+            await yieldAfterBurst(i)
         }
 
         #expect(store.state.count == totalPrimaryActions)

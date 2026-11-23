@@ -44,7 +44,7 @@ struct CancelInFlightTests {
         try await Task.sleep(nanoseconds: 50_000_000)
         store.send(.startTask("second"))
 
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.completionCount == 1
         }
 
@@ -64,7 +64,7 @@ struct CancelInFlightTests {
         try await Task.sleep(nanoseconds: 50_000_000)
         store.send(.startTask("second"))
 
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.completionCount == 2
         }
 
@@ -81,7 +81,7 @@ struct CancelInFlightTests {
             store.send(.startTask("task-\(i)"))
         }
 
-        try await waitForStateChange(timeout: 3.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.completionCount == 5
         }
 

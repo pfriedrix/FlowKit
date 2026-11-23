@@ -62,7 +62,7 @@ struct EffectRunTests {
         let store = Store(initial: EffectRunReducer.State(), reducer: EffectRunReducer())
         store.send(.runWithPriority(.high))
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.value == "done"
         }
 
@@ -73,7 +73,7 @@ struct EffectRunTests {
         let store = Store(initial: EffectRunReducer.State(), reducer: EffectRunReducer())
         store.send(.runWithPriority(.low))
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.value == "done"
         }
 
@@ -84,7 +84,7 @@ struct EffectRunTests {
         let store = Store(initial: EffectRunReducer.State(), reducer: EffectRunReducer())
         store.send(.runWithPriority(nil))
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.value == "done"
         }
 
@@ -95,7 +95,7 @@ struct EffectRunTests {
         let store = Store(initial: EffectRunReducer.State(), reducer: EffectRunReducer())
         store.send(.runThatThrowsWithHandler)
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.errorMessage == "code:42"
         }
 
@@ -107,7 +107,7 @@ struct EffectRunTests {
         let store = Store(initial: EffectRunReducer.State(), reducer: EffectRunReducer())
         store.send(.runThatThrows)
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.errorMessage == "cancelled"
         }
 
