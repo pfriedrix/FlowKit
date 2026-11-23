@@ -162,6 +162,10 @@ final public class Store<R: Reducer> {
         let send = Send<Action> { [weak self] action in
             guard let self else { return }
             await MainActor.run {
+                // `Send` checks for cancellation before the hop. Check again after it:
+                // `.cancel(id:)` or `cancelInFlight` may have cancelled this effect
+                // while its send was waiting for MainActor.
+                guard !Task.isCancelled else { return }
                 if let animation {
                     withAnimation(animation) { self.send(action) }
                 } else {
