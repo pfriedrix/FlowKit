@@ -1,10 +1,10 @@
-import XCTest
+import Testing
 import SwiftUI
 @testable import FlowKit
 
 /// Bindings on a store that persists its state: writing through a binding
 /// dispatches the action, and the resulting state reaches the persistence.
-final class PersistedBindingTests: XCTestCase {
+struct PersistedBindingTests {
 
     struct AppReducer: Reducer {
         struct State: Equatable {
@@ -64,7 +64,7 @@ final class PersistedBindingTests: XCTestCase {
     // MARK: - Test Helper Function
 
     /// Where the store under test saves its state. Fresh for every test:
-    /// XCTest creates one test case instance per test method.
+    /// Swift Testing creates one suite instance per test function.
     private let memory = InMemoryPersistence<AppReducer.State>()
 
     @MainActor
@@ -77,31 +77,31 @@ final class PersistedBindingTests: XCTestCase {
     /// `binding(for:set: Action)` dispatches a fixed action regardless of the
     /// new value the SwiftUI binding was written with, and persists the result.
     @MainActor
-    func testDirectActionBinding_dispatchesFixedActionAndPersists() async throws {
+    @Test func `Direct action binding dispatches fixed action and persists`() async throws {
         let store = createStore()
         let binding = store.binding(
             for: \.someStateProperty,
             set: AppReducer.Action.updateSomeState("Fixed")
         )
 
-        XCTAssertEqual(binding.wrappedValue, "Initial State")
+        #expect(binding.wrappedValue == "Initial State")
 
         binding.wrappedValue = "ignored by setter"
 
         try await waitForStateChange(timeout: 1.0) {
             store.state.someStateProperty == "Fixed"
         }
-        XCTAssertEqual(store.state.someStateProperty, "Fixed")
+        #expect(store.state.someStateProperty == "Fixed")
 
         try await waitForStateChange(timeout: 2.0) { [memory] in
             memory.value?.someStateProperty == "Fixed"
         }
-        XCTAssertEqual(memory.value?.someStateProperty, "Fixed")
+        #expect(memory.value?.someStateProperty == "Fixed")
     }
 
     /// Test that the state is saved after an action updates it.
     @MainActor
-    func testStateIsSavedAfterUpdate() async throws {
+    @Test func `State is saved after update`() async throws {
         let store = createStore()
 
         let binding = store.binding(for: \.someStateProperty, set: { newValue in
@@ -118,12 +118,12 @@ final class PersistedBindingTests: XCTestCase {
 
         // Ensure the state is saved
         let savedState = memory.value
-        XCTAssertEqual(savedState?.someStateProperty, "Updated State", "The state should be saved after the binding is modified.")
+        #expect(savedState?.someStateProperty == "Updated State", "The state should be saved after the binding is modified.")
     }
 
     /// Test that the state is reset and saved after a reset action.
     @MainActor
-    func testStateResetAndSaved() async throws {
+    @Test func `State reset and saved`() async throws {
         let store = createStore()
 
         let binding = store.binding(for: \.someStateProperty, set: { newValue in
@@ -148,12 +148,12 @@ final class PersistedBindingTests: XCTestCase {
 
         // Ensure the state is reset and saved
         let savedState = memory.value
-        XCTAssertEqual(savedState?.someStateProperty, "Initial State", "The state should be reset to the initial state.")
+        #expect(savedState?.someStateProperty == "Initial State", "The state should be reset to the initial state.")
     }
 
     /// Test that multiple updates are saved independently.
     @MainActor
-    func testMultipleUpdatesAreSaved() async throws {
+    @Test func `Multiple updates are saved`() async throws {
         let store = createStore()
 
         // Create bindings for two different properties
@@ -176,13 +176,13 @@ final class PersistedBindingTests: XCTestCase {
 
         // Ensure the state is saved
         let savedState = memory.value
-        XCTAssertEqual(savedState?.someStateProperty, "Updated String", "The string state should be updated and saved.")
-        XCTAssertEqual(savedState?.anotherStateProperty, 42, "The integer state should be updated and saved.")
+        #expect(savedState?.someStateProperty == "Updated String", "The string state should be updated and saved.")
+        #expect(savedState?.anotherStateProperty == 42, "The integer state should be updated and saved.")
     }
 
     /// Test that deeply nested state is saved after being updated.
     @MainActor
-    func testNestedStateIsSaved() async throws {
+    @Test func `Nested state is saved`() async throws {
         let store = createStore()
 
         // Create a binding for a deeply nested state property
@@ -200,14 +200,14 @@ final class PersistedBindingTests: XCTestCase {
 
         // Ensure the deeply nested state is saved
         let savedState = memory.value
-        XCTAssertEqual(savedState?.nestedState.someDeepProperty, "Updated Deep Value", "The deeply nested state should be saved.")
+        #expect(savedState?.nestedState.someDeepProperty == "Updated Deep Value", "The deeply nested state should be saved.")
     }
     
     // MARK: - Custom Getter Binding Tests for Persisted State
 
     /// Setting via a custom-getter binding dispatches the inverse-transformed action and persists it.
     @MainActor
-    func testCustomGetterBinding_persistsInverseTransformedValue() async throws {
+    @Test func `Custom getter binding persists inverse transformed value`() async throws {
         let store = createStore()
 
         let binding = store.binding(
@@ -226,12 +226,12 @@ final class PersistedBindingTests: XCTestCase {
             memory.value?.anotherStateProperty == 50
         }
 
-        XCTAssertEqual(memory.value?.anotherStateProperty, 50)
+        #expect(memory.value?.anotherStateProperty == 50)
     }
 
     /// The getter re-derives from current state, returning the forward-transformed value.
     @MainActor
-    func testCustomGetterBinding_getterReflectsTransformedState() async throws {
+    @Test func `Custom getter binding getter reflects transformed state`() async throws {
         let store = createStore()
 
         let binding = store.binding(
@@ -247,12 +247,12 @@ final class PersistedBindingTests: XCTestCase {
             store.state.anotherStateProperty == 50
         }
 
-        XCTAssertEqual(binding.wrappedValue, 100)
+        #expect(binding.wrappedValue == 100)
     }
     
     /// Test state-aware custom getter binding with complex conditions
     @MainActor
-    func testStateAwareCustomGetterBindingSavesState() async throws {
+    @Test func `State aware custom getter binding saves state`() async throws {
         let store = createStore()
         
         // Create a binding that combines state properties
@@ -266,7 +266,7 @@ final class PersistedBindingTests: XCTestCase {
         )
         
         // Initially returns "Default" because booleanFlag is false
-        XCTAssertEqual(binding.wrappedValue, "Default", "The binding should return default when flag is false.")
+        #expect(binding.wrappedValue == "Default", "The binding should return default when flag is false.")
         
         // Update the boolean flag
         store.send(.updateBooleanFlag(true))
@@ -275,7 +275,7 @@ final class PersistedBindingTests: XCTestCase {
         }
 
         // Now returns the actual state property
-        XCTAssertEqual(binding.wrappedValue, "Initial State", "The binding should return state property when flag is true.")
+        #expect(binding.wrappedValue == "Initial State", "The binding should return state property when flag is true.")
 
         // Update through the binding
         binding.wrappedValue = "New Value"
@@ -285,13 +285,13 @@ final class PersistedBindingTests: XCTestCase {
 
         // Verify the state was saved
         let savedState = memory.value
-        XCTAssertEqual(savedState?.someStateProperty, "New Value", "The state should be saved with the new value.")
-        XCTAssertEqual(savedState?.booleanFlag, true, "The boolean flag should remain true.")
+        #expect(savedState?.someStateProperty == "New Value", "The state should be saved with the new value.")
+        #expect(savedState?.booleanFlag == true, "The boolean flag should remain true.")
     }
     
     /// Test multiple custom getter bindings working together with persistence
     @MainActor
-    func testMultipleCustomGetterBindingsPersistence() async throws {
+    @Test func `Multiple custom getter bindings persistence`() async throws {
         let store = createStore()
         
         // First binding: transforms string values
@@ -317,17 +317,17 @@ final class PersistedBindingTests: XCTestCase {
 
         // Verify both values were saved correctly
         let savedState = memory.value
-        XCTAssertEqual(savedState?.someStateProperty, "HELLO WORLD", "String should be saved as uppercase.")
-        XCTAssertEqual(savedState?.anotherStateProperty, 42, "Integer should be saved with offset removed.")
+        #expect(savedState?.someStateProperty == "HELLO WORLD", "String should be saved as uppercase.")
+        #expect(savedState?.anotherStateProperty == 42, "Integer should be saved with offset removed.")
         
         // Verify bindings still work correctly with saved state
-        XCTAssertEqual(stringBinding.wrappedValue, "hello world", "String binding should return lowercase.")
-        XCTAssertEqual(intBinding.wrappedValue, 1042, "Integer binding should return with offset added.")
+        #expect(stringBinding.wrappedValue == "hello world", "String binding should return lowercase.")
+        #expect(intBinding.wrappedValue == 1042, "Integer binding should return with offset added.")
     }
     
     /// Test simple custom getter binding without state access
     @MainActor
-    func testSimpleCustomGetterBinding() async throws {
+    @Test func `Simple custom getter binding`() async throws {
         let store = createStore()
         
         struct SomeValue {
@@ -345,7 +345,7 @@ final class PersistedBindingTests: XCTestCase {
         )
         
         // Test that the binding returns the custom value
-        XCTAssertEqual(binding.wrappedValue, "Fixed Value", "The binding should return the custom getter value.")
+        #expect(binding.wrappedValue == "Fixed Value", "The binding should return the custom getter value.")
         
         // Update through the binding
         binding.wrappedValue = "New State Value"
@@ -355,15 +355,15 @@ final class PersistedBindingTests: XCTestCase {
 
         // Verify the state was saved
         let savedState = memory.value
-        XCTAssertEqual(savedState?.someStateProperty, "New State Value", "The state should be saved with the new value.")
+        #expect(savedState?.someStateProperty == "New State Value", "The state should be saved with the new value.")
         
         // The getter still returns the fixed value
-        XCTAssertEqual(binding.wrappedValue, "Fixed Value", "The binding should still return the fixed value.")
+        #expect(binding.wrappedValue == "Fixed Value", "The binding should still return the fixed value.")
     }
     
     /// Test custom getter with computed constants
     @MainActor
-    func testCustomGetterWithComputedConstants() async throws {
+    @Test func `Custom getter with computed constants`() async throws {
         let store = createStore()
         let baseValue = 100
         let multiplier = 3
@@ -377,7 +377,7 @@ final class PersistedBindingTests: XCTestCase {
         )
         
         // Test the computed value
-        XCTAssertEqual(binding.wrappedValue, 300, "The binding should return the computed constant (100 * 3).")
+        #expect(binding.wrappedValue == 300, "The binding should return the computed constant (100 * 3).")
         
         // Update through the binding
         binding.wrappedValue = 150
@@ -387,15 +387,15 @@ final class PersistedBindingTests: XCTestCase {
 
         // Verify the state was saved
         let savedState = memory.value
-        XCTAssertEqual(savedState?.anotherStateProperty, 150, "The state should be saved with the new value.")
+        #expect(savedState?.anotherStateProperty == 150, "The state should be saved with the new value.")
         
         // The getter still returns the computed constant
-        XCTAssertEqual(binding.wrappedValue, 300, "The binding should still return the computed constant.")
+        #expect(binding.wrappedValue == 300, "The binding should still return the computed constant.")
     }
     
     /// Test mixing simple and state-aware custom getter bindings
     @MainActor
-    func testMixedCustomGetterBindings() async throws {
+    @Test func `Mixed custom getter bindings`() async throws {
         let store = createStore()
         
         final class TestClass: Sendable {
@@ -419,8 +419,8 @@ final class PersistedBindingTests: XCTestCase {
         )
         
         // Initially, booleanFlag is false
-        XCTAssertEqual(simpleBinding.wrappedValue, "Constant", "Simple binding returns constant.")
-        XCTAssertEqual(stateBinding.wrappedValue, "Disabled", "State binding shows disabled.")
+        #expect(simpleBinding.wrappedValue == "Constant", "Simple binding returns constant.")
+        #expect(stateBinding.wrappedValue == "Disabled", "State binding shows disabled.")
         
         // Update through simple binding (sets booleanFlag to true)
         simpleBinding.wrappedValue = "Ignored"
@@ -430,8 +430,8 @@ final class PersistedBindingTests: XCTestCase {
 
         // Verify state was updated and saved
         let savedState1 = memory.value
-        XCTAssertEqual(savedState1?.booleanFlag, true, "Boolean flag should be true.")
-        XCTAssertEqual(stateBinding.wrappedValue, "Enabled", "State binding should now show enabled.")
+        #expect(savedState1?.booleanFlag == true, "Boolean flag should be true.")
+        #expect(stateBinding.wrappedValue == "Enabled", "State binding should now show enabled.")
         
         // Update through state binding
         stateBinding.wrappedValue = "Updated Text"
@@ -441,7 +441,7 @@ final class PersistedBindingTests: XCTestCase {
 
         // Verify both states were saved
         let savedState2 = memory.value
-        XCTAssertEqual(savedState2?.someStateProperty, "Updated Text", "Text should be updated.")
-        XCTAssertEqual(savedState2?.booleanFlag, true, "Boolean flag should remain true.")
+        #expect(savedState2?.someStateProperty == "Updated Text", "Text should be updated.")
+        #expect(savedState2?.booleanFlag == true, "Boolean flag should remain true.")
     }
 }

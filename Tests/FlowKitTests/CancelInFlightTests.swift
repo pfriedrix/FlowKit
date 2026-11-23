@@ -1,4 +1,4 @@
-import XCTest
+import Testing
 @testable import FlowKit
 
 struct CancelInFlightReducer: Reducer {
@@ -32,9 +32,9 @@ struct CancelInFlightReducer: Reducer {
 }
 
 @MainActor
-final class CancelInFlightTests: XCTestCase {
+struct CancelInFlightTests {
 
-    func testCancelInFlightTrueCancelsPreviousTask() async throws {
+    @Test func `Cancel in flight true cancels previous task`() async throws {
         let store = Store(
             initial: CancelInFlightReducer.State(),
             reducer: CancelInFlightReducer(cancelInFlight: true)
@@ -50,11 +50,11 @@ final class CancelInFlightTests: XCTestCase {
 
         try await Task.sleep(nanoseconds: 500_000_000)
 
-        XCTAssertEqual(store.state.completionCount, 1)
-        XCTAssertEqual(store.state.lastValue, "second")
+        #expect(store.state.completionCount == 1)
+        #expect(store.state.lastValue == "second")
     }
 
-    func testCancelInFlightFalseAllowsBothTasks() async throws {
+    @Test func `Cancel in flight false allows both tasks`() async throws {
         let store = Store(
             initial: CancelInFlightReducer.State(),
             reducer: CancelInFlightReducer(cancelInFlight: false)
@@ -68,10 +68,10 @@ final class CancelInFlightTests: XCTestCase {
             store.state.completionCount == 2
         }
 
-        XCTAssertEqual(store.state.completionCount, 2)
+        #expect(store.state.completionCount == 2)
     }
 
-    func testCancelInFlightFalseWithRapidDispatches() async throws {
+    @Test func `Cancel in flight false with rapid dispatches`() async throws {
         let store = Store(
             initial: CancelInFlightReducer.State(),
             reducer: CancelInFlightReducer(cancelInFlight: false)
@@ -85,6 +85,6 @@ final class CancelInFlightTests: XCTestCase {
             store.state.completionCount == 5
         }
 
-        XCTAssertEqual(store.state.completionCount, 5)
+        #expect(store.state.completionCount == 5)
     }
 }

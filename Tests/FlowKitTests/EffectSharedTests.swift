@@ -1,4 +1,4 @@
-import XCTest
+import Testing
 import SwiftUI
 @testable import FlowKit
 
@@ -120,30 +120,32 @@ struct InjectLoggerReducer: Reducer {
     }
 }
 
+// Serialized: tests reset and mutate the process-wide `StoreValues` registry stores (manual StoreKeys + @Inject).
+@Suite(.serialized)
 @MainActor
-final class EffectSharedTests: XCTestCase {
+struct EffectSharedTests {
     
     @Shared(\.manualCounterStore) var manualCounterStore
     @Shared(\.manualLoggerStore) var manualLoggerStore
 
-    @MainActor
-    func testManualStoreImplementation() {
+    @Test @MainActor
+    func `Manual store implementation`() {
         manualCounterStore.send(.reset)
         manualLoggerStore.send(.reset)
         
-        XCTAssertEqual(manualCounterStore.state.count, 0)
-        XCTAssertEqual(manualCounterStore.state.source, "Manual")
-        XCTAssertEqual(manualLoggerStore.state.logs, [])
-        XCTAssertEqual(manualLoggerStore.state.source, "Manual")
+        #expect(manualCounterStore.state.count == 0)
+        #expect(manualCounterStore.state.source == "Manual")
+        #expect(manualLoggerStore.state.logs == [])
+        #expect(manualLoggerStore.state.source == "Manual")
         
         manualCounterStore.send(.increment)
         
-        XCTAssertEqual(manualCounterStore.state.count, 1)
-        XCTAssertEqual(manualLoggerStore.state.logs, ["MANUAL: Incremented to 1"])
+        #expect(manualCounterStore.state.count == 1)
+        #expect(manualLoggerStore.state.logs == ["MANUAL: Incremented to 1"])
     }
     
-    @MainActor
-    func testManualMultipleIncrements() {
+    @Test @MainActor
+    func `Manual multiple increments`() {
         manualCounterStore.send(.reset)
         manualLoggerStore.send(.reset)
         
@@ -151,8 +153,8 @@ final class EffectSharedTests: XCTestCase {
         manualCounterStore.send(.increment)
         manualCounterStore.send(.increment)
         
-        XCTAssertEqual(manualCounterStore.state.count, 3)
-        XCTAssertEqual(manualLoggerStore.state.logs, [
+        #expect(manualCounterStore.state.count == 3)
+        #expect(manualLoggerStore.state.logs == [
             "MANUAL: Incremented to 1",
             "MANUAL: Incremented to 2",
             "MANUAL: Incremented to 3"
@@ -162,24 +164,24 @@ final class EffectSharedTests: XCTestCase {
     @Shared(\.injectCounterStore) var injectCounterStore
     @Shared(\.injectLoggerStore) var injectLoggerStore
 
-    @MainActor
-    func testInjectMacroImplementation() {
+    @Test @MainActor
+    func `Inject macro implementation`() {
         injectCounterStore.send(.reset)
         injectLoggerStore.send(.reset)
         
-        XCTAssertEqual(injectCounterStore.state.count, 0)
-        XCTAssertEqual(injectCounterStore.state.source, "Inject")
-        XCTAssertEqual(injectLoggerStore.state.logs, [])
-        XCTAssertEqual(injectLoggerStore.state.source, "Inject")
+        #expect(injectCounterStore.state.count == 0)
+        #expect(injectCounterStore.state.source == "Inject")
+        #expect(injectLoggerStore.state.logs == [])
+        #expect(injectLoggerStore.state.source == "Inject")
         
         injectCounterStore.send(.increment)
         
-        XCTAssertEqual(injectCounterStore.state.count, 1)
-        XCTAssertEqual(injectLoggerStore.state.logs, ["INJECT: Incremented to 1"])
+        #expect(injectCounterStore.state.count == 1)
+        #expect(injectLoggerStore.state.logs == ["INJECT: Incremented to 1"])
     }
     
-    @MainActor
-    func testInjectMultipleIncrements() {
+    @Test @MainActor
+    func `Inject multiple increments`() {
         injectCounterStore.send(.reset)
         injectLoggerStore.send(.reset)
         
@@ -187,16 +189,16 @@ final class EffectSharedTests: XCTestCase {
         injectCounterStore.send(.increment)
         injectCounterStore.send(.increment)
         
-        XCTAssertEqual(injectCounterStore.state.count, 3)
-        XCTAssertEqual(injectLoggerStore.state.logs, [
+        #expect(injectCounterStore.state.count == 3)
+        #expect(injectLoggerStore.state.logs == [
             "INJECT: Incremented to 1",
             "INJECT: Incremented to 2", 
             "INJECT: Incremented to 3"
         ])
     }
     
-    @MainActor
-    func testBothImplementationsAreIsolated() {
+    @Test @MainActor
+    func `Both implementations are isolated`() {
         manualCounterStore.send(.reset)
         manualLoggerStore.send(.reset)
         injectCounterStore.send(.reset)
@@ -204,35 +206,35 @@ final class EffectSharedTests: XCTestCase {
         
         manualCounterStore.send(.increment)
         
-        XCTAssertEqual(injectCounterStore.state.count, 0)
-        XCTAssertEqual(injectLoggerStore.state.logs, [])
+        #expect(injectCounterStore.state.count == 0)
+        #expect(injectLoggerStore.state.logs == [])
         
-        XCTAssertEqual(manualCounterStore.state.count, 1)
-        XCTAssertEqual(manualLoggerStore.state.logs, ["MANUAL: Incremented to 1"])
+        #expect(manualCounterStore.state.count == 1)
+        #expect(manualLoggerStore.state.logs == ["MANUAL: Incremented to 1"])
         
         injectCounterStore.send(.increment)
         
-        XCTAssertEqual(manualCounterStore.state.count, 1)
-        XCTAssertEqual(manualLoggerStore.state.logs, ["MANUAL: Incremented to 1"])
+        #expect(manualCounterStore.state.count == 1)
+        #expect(manualLoggerStore.state.logs == ["MANUAL: Incremented to 1"])
         
-        XCTAssertEqual(injectCounterStore.state.count, 1)
-        XCTAssertEqual(injectLoggerStore.state.logs, ["INJECT: Incremented to 1"])
+        #expect(injectCounterStore.state.count == 1)
+        #expect(injectLoggerStore.state.logs == ["INJECT: Incremented to 1"])
     }
     
-    @MainActor
-    func testManualAndInjectStores_produceEqualCounts() {
+    @Test @MainActor
+    func `Manual and inject stores produce equal counts`() {
         manualCounterStore.send(.reset)
         injectCounterStore.send(.reset)
 
         manualCounterStore.send(.increment)
         injectCounterStore.send(.increment)
 
-        XCTAssertEqual(manualCounterStore.state.count, 1)
-        XCTAssertEqual(injectCounterStore.state.count, 1)
+        #expect(manualCounterStore.state.count == 1)
+        #expect(injectCounterStore.state.count == 1)
     }
 
-    @MainActor
-    func testManualAndInjectStores_produceEqualLogCounts() {
+    @Test @MainActor
+    func `Manual and inject stores produce equal log counts`() {
         manualCounterStore.send(.reset)
         manualLoggerStore.send(.reset)
         injectCounterStore.send(.reset)
@@ -241,15 +243,15 @@ final class EffectSharedTests: XCTestCase {
         manualCounterStore.send(.increment)
         injectCounterStore.send(.increment)
 
-        XCTAssertEqual(manualLoggerStore.state.logs.count, 1)
-        XCTAssertEqual(injectLoggerStore.state.logs.count, 1)
+        #expect(manualLoggerStore.state.logs.count == 1)
+        #expect(injectLoggerStore.state.logs.count == 1)
     }
 
     /// `Send.callAsFunction(keyPath:, action:)` dispatches to the store
     /// referenced by `keyPath` in `StoreValues`, regardless of which store
     /// owns the Send.
-    @MainActor
-    func testSendKeyPathVariant_dispatchesToCrossStore() async throws {
+    @Test @MainActor
+    func `Send key path variant dispatches to cross store`() async throws {
         manualLoggerStore.send(.reset)
         let send = Send<Int> { _ in }
 
@@ -258,6 +260,6 @@ final class EffectSharedTests: XCTestCase {
         try await waitForStateChange(timeout: 1.0) {
             self.manualLoggerStore.state.logs == ["direct"]
         }
-        XCTAssertEqual(manualLoggerStore.state.logs, ["direct"])
+        #expect(manualLoggerStore.state.logs == ["direct"])
     }
 }

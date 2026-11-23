@@ -1,4 +1,4 @@
-import XCTest
+import Testing
 import SwiftUI
 @testable import FlowKit
 
@@ -35,35 +35,35 @@ extension StoreValues {
     }
 }
 
+// Serialized: all tests share the process-wide `DummyStoreKey.defaultValue` store (`\StoreValues.dummyStore`).
+// Expectations are relative to the store's current value, so they hold in any order.
+@Suite(.serialized)
 @MainActor
-final class SharedTests: XCTestCase {
+struct SharedTests {
     var storeValues = StoreValues()
 
-    override func setUp() {
-        super.setUp()
-    }
-
     /// Ensures that the Shared property wrapper initializes correctly.
-    func testSharedInitialization() {
+    @Test func `Shared initialization`() {
         let shared = Shared(\StoreValues.dummyStore) // Using the computed property
-        XCTAssertEqual(shared.wrappedValue.state.value, 0, "Expected initial state value to be 0")
-    }
-
-    /// Ensures that state updates propagate correctly when an action is dispatched.
-    func testSharedStateUpdate() {
-        let shared = Shared(\StoreValues.dummyStore)
-        let before = shared.wrappedValue.state.value
-        shared.wrappedValue.send(.increment)
-        XCTAssertEqual(shared.wrappedValue.state.value, before + 1, "Expected state value to increment by 1")
+        #expect(shared.wrappedValue === DummyStoreKey.defaultValue, "Expected Shared to resolve the registry's default store")
     }
 
     /// Ensures that multiple accesses to Shared retrieve the same store instance.
-    func testSharedMultipleAccess() {
+    @Test func `Shared multiple access`() {
         let shared1 = Shared(\StoreValues.dummyStore)
         let shared2 = Shared(\StoreValues.dummyStore)
+        let before = shared2.wrappedValue.state.value
 
         shared1.wrappedValue.send(.increment)
 
-        XCTAssertEqual(shared2.wrappedValue.state.value, 1, "Shared instances should reference the same store and have updated state")
+        #expect(shared2.wrappedValue.state.value == before + 1, "Shared instances should reference the same store and have updated state")
+    }
+
+    /// Ensures that state updates propagate correctly when an action is dispatched.
+    @Test func `Shared state update`() {
+        let shared = Shared(\StoreValues.dummyStore)
+        let before = shared.wrappedValue.state.value
+        shared.wrappedValue.send(.increment)
+        #expect(shared.wrappedValue.state.value == before + 1, "Expected state value to increment by 1")
     }
 }

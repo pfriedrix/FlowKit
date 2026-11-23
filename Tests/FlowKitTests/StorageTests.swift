@@ -1,8 +1,8 @@
-import XCTest
+import Testing
 @testable import FlowKit
 
 @MainActor
-class StorageTests: XCTestCase {
+struct StorageTests {
 
     struct MockReducer: Reducer {
         struct State: Equatable {
@@ -27,7 +27,7 @@ class StorageTests: XCTestCase {
 
     // Test that state is saved after sending an action
     @MainActor
-    func testStateSaving() async throws {
+    @Test func `State saving`() async throws {
         // Given
         let memory = InMemoryPersistence<MockReducer.State>()
         let initialState = MockReducer.State(value: 0)
@@ -39,11 +39,11 @@ class StorageTests: XCTestCase {
 
         // Then
         try await waitForStateChange(timeout: 2.0) { memory.value?.value == 1 }
-        XCTAssertEqual(memory.value?.value, 1)
+        #expect(memory.value?.value == 1)
     }
 
     // Test that state is loaded from storage when initializing the store
-    func testStateLoading() {
+    @Test func `State loading`() {
         // Given
         let memory = InMemoryPersistence(MockReducer.State(value: 42))
         let reducer = MockReducer()
@@ -52,12 +52,12 @@ class StorageTests: XCTestCase {
         let store = Store(reducer: reducer, default: MockReducer.State(value: 0), persistence: memory)
 
         // Then
-        XCTAssertEqual(store.state.value, 42)
+        #expect(store.state.value == 42)
     }
 
     // Test that state is correctly updated and saved after multiple actions
     @MainActor
-    func testDispatchAndSave() async throws {
+    @Test func `Dispatch and save`() async throws {
         // Given
         let recording = RecordingPersistence<MockReducer.State>()
         let initialState = MockReducer.State(value: 0)
@@ -71,11 +71,11 @@ class StorageTests: XCTestCase {
 
         // Then: one save for the default state, then one per action
         try await waitForStateChange(timeout: 2.0) { recording.saves.count == 4 }
-        XCTAssertEqual(recording.saves.last?.value, 1)
+        #expect(recording.saves.last?.value == 1)
     }
 
     // Test that state defaults to the provided initial state if no saved state exists
-    func testStateNotLoadedIfNoSavedStateExists() {
+    @Test func `State not loaded if no saved state exists`() {
         // Given
         let memory = InMemoryPersistence<MockReducer.State>()
         let reducer = MockReducer()
@@ -84,11 +84,11 @@ class StorageTests: XCTestCase {
         let store = Store(reducer: reducer, default: MockReducer.State(value: 10), persistence: memory)
 
         // Then
-        XCTAssertEqual(store.state.value, 10)  // Default state should be used
+        #expect(store.state.value == 10)  // Default state should be used
     }
 
     @MainActor
-    func testStateSavingAfterMultipleActions() async throws {
+    @Test func `State saving after multiple actions`() async throws {
         // Given
         let recording = RecordingPersistence<MockReducer.State>()
         let initialState = MockReducer.State(value: 0)
@@ -102,11 +102,11 @@ class StorageTests: XCTestCase {
 
         // Then: one save for the default state, then one per action
         try await waitForStateChange(timeout: 2.0) { recording.saves.count == 4 }
-        XCTAssertEqual(recording.saves.last?.value, 1)  // 1 = 0 + 1 + 1 - 1
+        #expect(recording.saves.last?.value == 1)  // 1 = 0 + 1 + 1 - 1
     }
 
     @MainActor
-    func testStateLoadingAndFurtherDispatch() async throws {
+    @Test func `State loading and further dispatch`() async throws {
         // Given
         let memory = InMemoryPersistence(MockReducer.State(value: 10))  // Simulate a saved state
         let reducer = MockReducer()
@@ -117,11 +117,11 @@ class StorageTests: XCTestCase {
 
         // Then
         try await waitForStateChange(timeout: 2.0) { memory.value?.value == 9 }
-        XCTAssertEqual(memory.value?.value, 9)
+        #expect(memory.value?.value == 9)
     }
 
     @MainActor
-    func testEffectHandlingInReducer() async throws {
+    @Test func `Effect handling in reducer`() async throws {
         struct EffectReducer: Reducer {
             struct State: Equatable {
                 var value: Int
@@ -158,11 +158,11 @@ class StorageTests: XCTestCase {
 
         // Then: one save for the default state, then one per action in the chain
         try await waitForStateChange(timeout: 2.0) { recording.saves.count == 4 }
-        XCTAssertEqual(recording.saves.last?.value, 0)  // Final value should be 0 after both increment and decrement
+        #expect(recording.saves.last?.value == 0)  // Final value should be 0 after both increment and decrement
     }
 
     @MainActor
-    func testNoNegativeStateValues() async throws {
+    @Test func `No negative state values`() async throws {
         struct NonNegativeReducer: Reducer {
             struct State: Equatable {
                 var value: Int
@@ -194,11 +194,11 @@ class StorageTests: XCTestCase {
 
         // Then: one save for the default state, one for the action
         try await waitForStateChange(timeout: 2.0) { recording.saves.count == 2 }
-        XCTAssertEqual(recording.saves.last?.value, 0)  // Value should remain 0
+        #expect(recording.saves.last?.value == 0)  // Value should remain 0
     }
 
     @MainActor
-    func testAsyncEffectHandling_updatesInMemoryState() async throws {
+    @Test func `Async effect handling updates in-memory state`() async throws {
         let memory = InMemoryPersistence<AsyncEffectReducer.State>()
         let store = Store(reducer: AsyncEffectReducer(), default: .init(value: 0), persistence: memory)
         store.send(.increment)
@@ -207,11 +207,11 @@ class StorageTests: XCTestCase {
             store.state.value == 2
         }
 
-        XCTAssertEqual(store.state.value, 2)
+        #expect(store.state.value == 2)
     }
 
     @MainActor
-    func testAsyncEffectHandling_persistsFinalState() async throws {
+    @Test func `Async effect handling persists final state`() async throws {
         let memory = InMemoryPersistence<AsyncEffectReducer.State>()
         let store = Store(reducer: AsyncEffectReducer(), default: .init(value: 0), persistence: memory)
         store.send(.increment)
@@ -220,7 +220,7 @@ class StorageTests: XCTestCase {
             memory.value?.value == 2
         }
 
-        XCTAssertEqual(memory.value?.value, 2)
+        #expect(memory.value?.value == 2)
     }
 }
 

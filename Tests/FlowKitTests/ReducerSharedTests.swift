@@ -1,4 +1,4 @@
-import XCTest
+import Testing
 @testable import FlowKit
 
 /// Test reducer that accesses shared store state
@@ -80,15 +80,13 @@ extension StoreValues {
     }
 }
 
+// Serialized: tests reset and mutate the process-wide `CounterStoreKey` / `DependentStoreKey` default stores.
+@Suite(.serialized)
 @MainActor
-final class ReducerSharedTests: XCTestCase {
-
-    override func setUp() {
-        super.setUp()
-    }
+struct ReducerSharedTests {
 
     /// Test that a reducer can access shared store state
-    func testReducerCanAccessSharedState() {
+    @Test func `Reducer can access shared state`() {
         let counterStore = Shared(\StoreValues.counterStore)
         let dependentStore = Shared(\StoreValues.dependentStore)
         
@@ -100,16 +98,16 @@ final class ReducerSharedTests: XCTestCase {
         counterStore.wrappedValue.send(.increment)
         counterStore.wrappedValue.send(.increment)
 
-        XCTAssertEqual(counterStore.wrappedValue.state.count, 3)
+        #expect(counterStore.wrappedValue.state.count == 3)
 
         // Update dependent store which reads from counter
         dependentStore.wrappedValue.send(.updateFromShared)
 
-        XCTAssertEqual(dependentStore.wrappedValue.state.total, 6, "Expected total to be 6 (count * 2)")
+        #expect(dependentStore.wrappedValue.state.total == 6, "Expected total to be 6 (count * 2)")
     }
 
     /// Test that shared state is read-only and updates dynamically
-    func testSharedStateUpdatesDynamically() {
+    @Test func `Shared state updates dynamically`() {
         let counterStore = Shared(\StoreValues.counterStore)
         let dependentStore = Shared(\StoreValues.dependentStore)
         
@@ -120,7 +118,7 @@ final class ReducerSharedTests: XCTestCase {
         counterStore.wrappedValue.send(.increment)
         dependentStore.wrappedValue.send(.updateFromShared)
 
-        XCTAssertEqual(dependentStore.wrappedValue.state.total, 2)
+        #expect(dependentStore.wrappedValue.state.total == 2)
 
         // Counter changes
         counterStore.wrappedValue.send(.increment)
@@ -129,11 +127,11 @@ final class ReducerSharedTests: XCTestCase {
         // Dependent reads again
         dependentStore.wrappedValue.send(.updateFromShared)
 
-        XCTAssertEqual(dependentStore.wrappedValue.state.total, 6)
+        #expect(dependentStore.wrappedValue.state.total == 6)
     }
 
     /// Test that multiple reducers can read from the same shared store
-    func testMultipleReducersReadSameSharedStore() {
+    @Test func `Multiple reducers read same shared store`() {
         let counterStore = Shared(\StoreValues.counterStore)
         let dependentStore1 = Shared(\StoreValues.dependentStore)
         let dependentStore2 = Shared(\StoreValues.dependentStore)
@@ -150,13 +148,13 @@ final class ReducerSharedTests: XCTestCase {
         dependentStore1.wrappedValue.send(.updateFromShared)
         dependentStore2.wrappedValue.send(.updateFromShared)
 
-        XCTAssertEqual(dependentStore1.wrappedValue.state.total, 10)
-        XCTAssertEqual(dependentStore2.wrappedValue.state.total, 10)
-        XCTAssertEqual(dependentStore1.wrappedValue.state.total, dependentStore2.wrappedValue.state.total)
+        #expect(dependentStore1.wrappedValue.state.total == 10)
+        #expect(dependentStore2.wrappedValue.state.total == 10)
+        #expect(dependentStore1.wrappedValue.state.total == dependentStore2.wrappedValue.state.total)
     }
 
     /// Test that shared state reflects immediate changes
-    func testSharedStateReflectsImmediateChanges() {
+    @Test func `Shared state reflects immediate changes`() {
         let counterStore = Shared(\StoreValues.counterStore)
         let dependentStore = Shared(\StoreValues.dependentStore)
 
@@ -165,21 +163,21 @@ final class ReducerSharedTests: XCTestCase {
 
         // Before any increment
         dependentStore.wrappedValue.send(.updateFromShared)
-        XCTAssertEqual(dependentStore.wrappedValue.state.total, 0)
+        #expect(dependentStore.wrappedValue.state.total == 0)
 
         // After one increment
         counterStore.wrappedValue.send(.increment)
         dependentStore.wrappedValue.send(.updateFromShared)
-        XCTAssertEqual(dependentStore.wrappedValue.state.total, 2)
+        #expect(dependentStore.wrappedValue.state.total == 2)
 
         // After another increment
         counterStore.wrappedValue.send(.increment)
         dependentStore.wrappedValue.send(.updateFromShared)
-        XCTAssertEqual(dependentStore.wrappedValue.state.total, 4)
+        #expect(dependentStore.wrappedValue.state.total == 4)
     }
 
     /// Test that reset action properly resets state to initial values
-    func testResetActionResetsToInitialState() {
+    @Test func `Reset action resets to initial state`() {
         let counterStore = Shared(\StoreValues.counterStore)
 
         counterStore.wrappedValue.send(.reset)
@@ -189,16 +187,16 @@ final class ReducerSharedTests: XCTestCase {
         counterStore.wrappedValue.send(.increment)
         counterStore.wrappedValue.send(.increment)
 
-        XCTAssertEqual(counterStore.wrappedValue.state.count, 3)
+        #expect(counterStore.wrappedValue.state.count == 3)
 
         // Reset should bring it back to 0
         counterStore.wrappedValue.send(.reset)
 
-        XCTAssertEqual(counterStore.wrappedValue.state.count, 0)
+        #expect(counterStore.wrappedValue.state.count == 0)
     }
 
     /// Test that dependent store correctly calculates based on shared state at different values
-    func testDependentCalculationAtDifferentValues() {
+    @Test func `Dependent calculation at different values`() {
         let counterStore = Shared(\StoreValues.counterStore)
         let dependentStore = Shared(\StoreValues.dependentStore)
 
@@ -217,13 +215,13 @@ final class ReducerSharedTests: XCTestCase {
             // Dependent should calculate as count * 2
             dependentStore.wrappedValue.send(.updateFromShared)
 
-            XCTAssertEqual(counterStore.wrappedValue.state.count, expectedCount)
-            XCTAssertEqual(dependentStore.wrappedValue.state.total, expectedCount * 2)
+            #expect(counterStore.wrappedValue.state.count == expectedCount)
+            #expect(dependentStore.wrappedValue.state.total == expectedCount * 2)
         }
     }
 
     /// Test that shared stores are independent from local store instances
-    func testSharedStoresAreGloballyAccessible() {
+    @Test func `Shared stores are globally accessible`() {
         let counterStore1 = Shared(\StoreValues.counterStore)
 
         // Modify through first reference
@@ -234,12 +232,12 @@ final class ReducerSharedTests: XCTestCase {
         // Create new reference and verify it has the same state
         let counterStore2 = Shared(\StoreValues.counterStore)
 
-        XCTAssertEqual(counterStore2.wrappedValue.state.count, 2)
+        #expect(counterStore2.wrappedValue.state.count == 2)
 
         // Modify through second reference
         counterStore2.wrappedValue.send(.increment)
 
         // First reference should see the change
-        XCTAssertEqual(counterStore1.wrappedValue.state.count, 3)
+        #expect(counterStore1.wrappedValue.state.count == 3)
     }
 }

@@ -1,4 +1,4 @@
-import XCTest
+import Testing
 import SwiftUI
 @testable import FlowKit
 
@@ -44,26 +44,26 @@ struct AnimationReducer: Reducer {
 }
 
 @MainActor
-final class AnimationEffectTests: XCTestCase {
+struct AnimationEffectTests {
 
     // MARK: - Delivery
 
-    func testAnimatedSendDeliversAction() {
+    @Test func `Animated send delivers action`() {
         let store = Store(initial: AnimationReducer.State(), reducer: AnimationReducer())
         store.send(.animatedIncrement)
 
-        XCTAssertEqual(store.state.count, 1)
+        #expect(store.state.count == 1)
     }
 
-    func testAnimatedMergeDeliversAllActions() {
+    @Test func `Animated merge delivers all actions`() {
         let store = Store(initial: AnimationReducer.State(), reducer: AnimationReducer())
         store.send(.animatedMerge)
 
-        XCTAssertEqual(store.state.count, 2)
-        XCTAssertEqual(store.state.message, "animated")
+        #expect(store.state.count == 2)
+        #expect(store.state.message == "animated")
     }
 
-    func testAnimatedRunDeliversAction() async throws {
+    @Test func `Animated run delivers action`() async throws {
         let store = Store(initial: AnimationReducer.State(), reducer: AnimationReducer())
         store.send(.animatedRun)
 
@@ -71,73 +71,73 @@ final class AnimationEffectTests: XCTestCase {
             store.state.count == 1
         }
 
-        XCTAssertEqual(store.state.count, 1)
+        #expect(store.state.count == 1)
     }
 
-    func testNilAnimationPassesThrough() {
+    @Test func `Nil animation passes through`() {
         let store = Store(initial: AnimationReducer.State(), reducer: AnimationReducer())
         store.send(.animatedNilAnimation)
 
-        XCTAssertEqual(store.state.count, 1)
+        #expect(store.state.count == 1)
     }
 
     // MARK: - Structure
 
-    func testAnimatedSendKeepsSendOperation() {
+    @Test func `Animated send keeps send operation`() {
         let effect = Effect<AnimationReducer.Action>.send(.increment).animation(.easeIn)
 
         guard case .send(let action) = effect.operation else {
-            XCTFail("expected .send, got \(effect.operation)")
+            Issue.record("expected .send, got \(effect.operation)")
             return
         }
-        XCTAssertEqual(action, .increment)
-        XCTAssertNotNil(effect.animation)
+        #expect(action == .increment)
+        #expect(effect.animation != nil)
     }
 
-    func testAnimatedMergeKeepsMergeOperation() {
+    @Test func `Animated merge keeps merge operation`() {
         let effect = Effect<AnimationReducer.Action>.merge(.increment, .increment).animation(.easeInOut)
 
         guard case .merge(let actions) = effect.operation else {
-            XCTFail("expected .merge, got \(effect.operation)")
+            Issue.record("expected .merge, got \(effect.operation)")
             return
         }
-        XCTAssertEqual(actions, [.increment, .increment])
-        XCTAssertNotNil(effect.animation)
+        #expect(actions == [.increment, .increment])
+        #expect(effect.animation != nil)
     }
 
-    func testAnimatedRunKeepsRunOperation() {
+    @Test func `Animated run keeps run operation`() {
         let effect = Effect<AnimationReducer.Action>.run { send in
             await send(.increment)
         }.animation(.spring)
 
         guard case .run = effect.operation else {
-            XCTFail("expected .run, got \(effect.operation)")
+            Issue.record("expected .run, got \(effect.operation)")
             return
         }
-        XCTAssertNotNil(effect.animation)
+        #expect(effect.animation != nil)
     }
 
-    func testNilAnimationDropsAnimation() {
+    @Test func `Nil animation drops animation`() {
         let effect = Effect<AnimationReducer.Action>.send(.increment).animation(nil)
 
         guard case .send(let action) = effect.operation else {
-            XCTFail("expected .send, got \(effect.operation)")
+            Issue.record("expected .send, got \(effect.operation)")
             return
         }
-        XCTAssertEqual(action, .increment)
-        XCTAssertNil(effect.animation)
+        #expect(action == .increment)
+        #expect(effect.animation == nil)
     }
 
     /// Regression guard: `.animation(nil)` must actually clear a previously-attached
     /// animation, not silently no-op. Before the fix the method guarded on `nil` and
     /// returned `self`, so this chain would have kept `.easeIn` instead of clearing it.
-    func testNilAnimationClearsPreviouslyAttachedAnimation() {
+    @Test func `Nil animation clears previously attached animation`() {
         let effect = Effect<AnimationReducer.Action>
             .send(.increment)
             .animation(.easeIn)
             .animation(nil)
 
-        XCTAssertNil(effect.animation)
+        #expect(effect.animation == nil)
     }
 
     // MARK: - Synchronous dispatch
@@ -148,22 +148,22 @@ final class AnimationEffectTests: XCTestCase {
     // had already closed its transaction before the state actually changed. The
     // synchronous assertions below fail if the `.run` detour is re-introduced.
 
-    func testAnimatedSendDispatchesSynchronouslyOnMainActor() {
+    @Test func `Animated send dispatches synchronously on MainActor`() {
         let store = Store(initial: AnimationReducer.State(), reducer: AnimationReducer())
 
         store.send(.animatedIncrement)
 
-        XCTAssertEqual(store.state.count, 1,
-                       "Animated .send must mutate state synchronously on MainActor — no Task hop.")
+        #expect(store.state.count == 1,
+                "Animated .send must mutate state synchronously on MainActor — no Task hop.")
     }
 
-    func testAnimatedMergeDispatchesSynchronouslyOnMainActor() {
+    @Test func `Animated merge dispatches synchronously on MainActor`() {
         let store = Store(initial: AnimationReducer.State(), reducer: AnimationReducer())
 
         store.send(.animatedMerge)
 
-        XCTAssertEqual(store.state.count, 2,
-                       "Animated .merge must mutate state synchronously on MainActor — no Task hop.")
-        XCTAssertEqual(store.state.message, "animated")
+        #expect(store.state.count == 2,
+                "Animated .merge must mutate state synchronously on MainActor — no Task hop.")
+        #expect(store.state.message == "animated")
     }
 }

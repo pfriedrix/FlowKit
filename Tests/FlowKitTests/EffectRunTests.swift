@@ -1,4 +1,5 @@
-import XCTest
+import Foundation
+import Testing
 @testable import FlowKit
 
 struct EffectRunReducer: Reducer {
@@ -55,9 +56,9 @@ struct EffectRunReducer: Reducer {
 }
 
 @MainActor
-final class EffectRunTests: XCTestCase {
+struct EffectRunTests {
 
-    func testRunWithHighPriority() async throws {
+    @Test func `Run with high priority`() async throws {
         let store = Store(initial: EffectRunReducer.State(), reducer: EffectRunReducer())
         store.send(.runWithPriority(.high))
 
@@ -65,10 +66,10 @@ final class EffectRunTests: XCTestCase {
             store.state.value == "done"
         }
 
-        XCTAssertEqual(store.state.value, "done")
+        #expect(store.state.value == "done")
     }
 
-    func testRunWithLowPriority() async throws {
+    @Test func `Run with low priority`() async throws {
         let store = Store(initial: EffectRunReducer.State(), reducer: EffectRunReducer())
         store.send(.runWithPriority(.low))
 
@@ -76,10 +77,10 @@ final class EffectRunTests: XCTestCase {
             store.state.value == "done"
         }
 
-        XCTAssertEqual(store.state.value, "done")
+        #expect(store.state.value == "done")
     }
 
-    func testRunWithNilPriority() async throws {
+    @Test func `Run with nil priority`() async throws {
         let store = Store(initial: EffectRunReducer.State(), reducer: EffectRunReducer())
         store.send(.runWithPriority(nil))
 
@@ -87,10 +88,10 @@ final class EffectRunTests: XCTestCase {
             store.state.value == "done"
         }
 
-        XCTAssertEqual(store.state.value, "done")
+        #expect(store.state.value == "done")
     }
 
-    func testRunErrorCaughtByHandler() async throws {
+    @Test func `Run error caught by handler`() async throws {
         let store = Store(initial: EffectRunReducer.State(), reducer: EffectRunReducer())
         store.send(.runThatThrowsWithHandler)
 
@@ -98,11 +99,11 @@ final class EffectRunTests: XCTestCase {
             store.state.errorMessage == "code:42"
         }
 
-        XCTAssertEqual(store.state.errorMessage, "code:42")
-        XCTAssertEqual(store.state.value, "")
+        #expect(store.state.errorMessage == "code:42")
+        #expect(store.state.value == "")
     }
 
-    func testRunCancellationErrorCaughtByHandler() async throws {
+    @Test func `Run cancellation error caught by handler`() async throws {
         let store = Store(initial: EffectRunReducer.State(), reducer: EffectRunReducer())
         store.send(.runThatThrows)
 
@@ -110,16 +111,16 @@ final class EffectRunTests: XCTestCase {
             store.state.errorMessage == "cancelled"
         }
 
-        XCTAssertEqual(store.state.errorMessage, "cancelled")
+        #expect(store.state.errorMessage == "cancelled")
     }
 
-    func testRunWithoutHandlerDoesNotCrash() async throws {
+    @Test func `Run without handler does not crash`() async throws {
         let store = Store(initial: EffectRunReducer.State(), reducer: EffectRunReducer())
         store.send(.runThatThrowsWithoutHandler)
 
         try await Task.sleep(nanoseconds: 200_000_000)
 
-        XCTAssertEqual(store.state.value, "")
-        XCTAssertEqual(store.state.errorMessage, "")
+        #expect(store.state.value == "")
+        #expect(store.state.errorMessage == "")
     }
 }

@@ -1,8 +1,8 @@
-import XCTest
+import Testing
 @testable import FlowKit
 
 @MainActor
-final class EffectEquatableTests: XCTestCase {
+struct EffectEquatableTests {
     enum TestAction: Equatable, Sendable {
         case a
         case b
@@ -11,93 +11,93 @@ final class EffectEquatableTests: XCTestCase {
 
     // MARK: - isNone
 
-    func testIsNoneTrueForNone() {
+    @Test func `isNone true for none`() {
         let effect: Effect<TestAction> = .none
-        XCTAssertTrue(effect.isNone)
+        #expect(effect.isNone)
     }
 
-    func testIsNoneFalseForSend() {
+    @Test func `isNone false for send`() {
         let effect: Effect<TestAction> = .send(.a)
-        XCTAssertFalse(effect.isNone)
+        #expect(!effect.isNone)
     }
 
-    func testIsNoneFalseForMerge() {
+    @Test func `isNone false for merge`() {
         let effect: Effect<TestAction> = .merge(.a, .b)
-        XCTAssertFalse(effect.isNone)
+        #expect(!effect.isNone)
     }
 
-    func testIsNoneFalseForRun() {
+    @Test func `isNone false for run`() {
         let effect: Effect<TestAction> = .run { _ in }
-        XCTAssertFalse(effect.isNone)
+        #expect(!effect.isNone)
     }
 
     // MARK: - Equatable
 
-    func testNoneEqualsNone() {
+    @Test func `None equals none`() {
         let lhs: Effect<TestAction> = .none
         let rhs: Effect<TestAction> = .none
-        XCTAssertEqual(lhs, rhs)
+        #expect(lhs == rhs)
     }
 
-    func testSendEqualWhenActionsMatch() {
+    @Test func `Send equal when actions match`() {
         let lhs: Effect<TestAction> = .send(.payload(7))
         let rhs: Effect<TestAction> = .send(.payload(7))
-        XCTAssertEqual(lhs, rhs)
+        #expect(lhs == rhs)
     }
 
-    func testSendUnequalWhenActionsDiffer() {
+    @Test func `Send unequal when actions differ`() {
         let lhs: Effect<TestAction> = .send(.payload(1))
         let rhs: Effect<TestAction> = .send(.payload(2))
-        XCTAssertNotEqual(lhs, rhs)
+        #expect(lhs != rhs)
     }
 
-    func testMergeEqualWhenActionsMatch() {
+    @Test func `Merge equal when actions match`() {
         let lhs: Effect<TestAction> = .merge(.a, .b)
         let rhs: Effect<TestAction> = .merge(.a, .b)
-        XCTAssertEqual(lhs, rhs)
+        #expect(lhs == rhs)
     }
 
-    func testMergeUnequalWhenActionsDiffer() {
+    @Test func `Merge unequal when actions differ`() {
         let lhs: Effect<TestAction> = .merge(.a, .b)
         let rhs: Effect<TestAction> = .merge(.a)
-        XCTAssertNotEqual(lhs, rhs)
+        #expect(lhs != rhs)
     }
 
-    func testRunEqualWhenPrioritiesMatch() {
+    @Test func `Run equal when priorities match`() {
         let lhs: Effect<TestAction> = .run(priority: .high) { _ in }
         let rhs: Effect<TestAction> = .run(priority: .high) { _ in }
-        XCTAssertEqual(lhs, rhs)
+        #expect(lhs == rhs)
     }
 
-    func testRunUnequalWhenPrioritiesDiffer() {
+    @Test func `Run unequal when priorities differ`() {
         let lhs: Effect<TestAction> = .run(priority: .high) { _ in }
         let rhs: Effect<TestAction> = .run(priority: .low) { _ in }
-        XCTAssertNotEqual(lhs, rhs)
+        #expect(lhs != rhs)
     }
 
-    func testCancelEqualWhenIdsMatch() {
+    @Test func `Cancel equal when ids match`() {
         let lhs: Effect<TestAction> = .cancel(id: "same")
         let rhs: Effect<TestAction> = .cancel(id: "same")
-        XCTAssertEqual(lhs, rhs)
+        #expect(lhs == rhs)
     }
 
-    func testCancelUnequalWhenIdsDiffer() {
+    @Test func `Cancel unequal when ids differ`() {
         let lhs: Effect<TestAction> = .cancel(id: "one")
         let rhs: Effect<TestAction> = .cancel(id: "two")
-        XCTAssertNotEqual(lhs, rhs)
+        #expect(lhs != rhs)
     }
 
-    func testDifferentCasesAreUnequal() {
+    @Test func `Different cases are unequal`() {
         let none: Effect<TestAction> = .none
         let send: Effect<TestAction> = .send(.a)
         let merge: Effect<TestAction> = .merge(.a)
         let run: Effect<TestAction> = .run { _ in }
 
-        XCTAssertNotEqual(none, send)
-        XCTAssertNotEqual(none, merge)
-        XCTAssertNotEqual(none, run)
-        XCTAssertNotEqual(send, merge)
-        XCTAssertNotEqual(send, run)
-        XCTAssertNotEqual(merge, run)
+        #expect(none != send)
+        #expect(none != merge)
+        #expect(none != run)
+        #expect(send != merge)
+        #expect(send != run)
+        #expect(merge != run)
     }
 }

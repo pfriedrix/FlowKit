@@ -1,10 +1,10 @@
-import XCTest
+import Testing
 @testable import FlowKit
 
 /// Demonstrates testing a reducer synchronously as a pure function,
 /// with no Store, no async, and no polling.
 @MainActor
-final class ReducerSyncTests: XCTestCase {
+struct ReducerSyncTests {
 
     struct CounterReducer: Reducer {
         struct State: Equatable, Sendable {
@@ -42,39 +42,39 @@ final class ReducerSyncTests: XCTestCase {
         }
     }
 
-    func testIncrementMutatesState() {
+    @Test func `Increment mutates state`() {
         var state = CounterReducer.State()
         let effect = CounterReducer().reduce(into: &state, action: .increment)
-        XCTAssertEqual(state.count, 1)
-        XCTAssertEqual(effect, .none)
+        #expect(state.count == 1)
+        #expect(effect == .none)
     }
 
-    func testDecrementMutatesState() {
+    @Test func `Decrement mutates state`() {
         var state = CounterReducer.State(count: 5, message: "")
         let effect = CounterReducer().reduce(into: &state, action: .decrement)
-        XCTAssertEqual(state.count, 4)
-        XCTAssertTrue(effect.isNone)
+        #expect(state.count == 4)
+        #expect(effect.isNone)
     }
 
-    func testSetMessageMutatesState() {
+    @Test func `Set message mutates state`() {
         var state = CounterReducer.State()
         let effect = CounterReducer().reduce(into: &state, action: .setMessage("hi"))
-        XCTAssertEqual(state.message, "hi")
-        XCTAssertEqual(effect, .none)
+        #expect(state.message == "hi")
+        #expect(effect == .none)
     }
 
-    func testStartReturnsRunEffect() {
+    @Test func `Start returns run effect`() {
         var state = CounterReducer.State()
         let effect = CounterReducer().reduce(into: &state, action: .start)
-        XCTAssertFalse(effect.isNone)
-        XCTAssertEqual(state, CounterReducer.State())
-        XCTAssertNotEqual(effect, .none)
+        #expect(!effect.isNone)
+        #expect(state == CounterReducer.State())
+        #expect(effect != .none)
     }
 
-    func testResetReturnsMergeEffect() {
+    @Test func `Reset returns merge effect`() {
         var state = CounterReducer.State(count: 10, message: "stale")
         let effect = CounterReducer().reduce(into: &state, action: .reset)
-        XCTAssertEqual(state.count, 0)
-        XCTAssertEqual(effect, .merge(.setMessage("")))
+        #expect(state.count == 0)
+        #expect(effect == .merge(.setMessage("")))
     }
 }
