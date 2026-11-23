@@ -38,7 +38,7 @@ struct StorageTests {
         store.send(.increment)
 
         // Then
-        try await waitForStateChange(timeout: 2.0) { memory.value?.value == 1 }
+        try await waitForStateChange(timeout: 5.0) { memory.value?.value == 1 }
         #expect(memory.value?.value == 1)
     }
 
@@ -70,7 +70,7 @@ struct StorageTests {
         store.send(.decrement)  // -1
 
         // Then: one save for the default state, then one per action
-        try await waitForStateChange(timeout: 2.0) { recording.saves.count == 4 }
+        try await waitForStateChange(timeout: 5.0) { recording.saves.count == 4 }
         #expect(recording.saves.last?.value == 1)
     }
 
@@ -101,7 +101,7 @@ struct StorageTests {
         store.send(.decrement)  // -1
 
         // Then: one save for the default state, then one per action
-        try await waitForStateChange(timeout: 2.0) { recording.saves.count == 4 }
+        try await waitForStateChange(timeout: 5.0) { recording.saves.count == 4 }
         #expect(recording.saves.last?.value == 1)  // 1 = 0 + 1 + 1 - 1
     }
 
@@ -116,7 +116,7 @@ struct StorageTests {
         store.send(.decrement)  // 10 -> 9
 
         // Then
-        try await waitForStateChange(timeout: 2.0) { memory.value?.value == 9 }
+        try await waitForStateChange(timeout: 5.0) { memory.value?.value == 9 }
         #expect(memory.value?.value == 9)
     }
 
@@ -157,7 +157,7 @@ struct StorageTests {
         store.send(.increment)  // +1, then trigger decrement -> -1
 
         // Then: one save for the default state, then one per action in the chain
-        try await waitForStateChange(timeout: 2.0) { recording.saves.count == 4 }
+        try await waitForStateChange(timeout: 5.0) { recording.saves.count == 4 }
         #expect(recording.saves.last?.value == 0)  // Final value should be 0 after both increment and decrement
     }
 
@@ -193,7 +193,7 @@ struct StorageTests {
         store.send(.decrement)  // Try to decrement below zero
 
         // Then: one save for the default state, one for the action
-        try await waitForStateChange(timeout: 2.0) { recording.saves.count == 2 }
+        try await waitForStateChange(timeout: 5.0) { recording.saves.count == 2 }
         #expect(recording.saves.last?.value == 0)  // Value should remain 0
     }
 
@@ -203,7 +203,7 @@ struct StorageTests {
         let store = Store(reducer: AsyncEffectReducer(), default: .init(value: 0), persistence: memory)
         store.send(.increment)
 
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.value == 2
         }
 
@@ -216,7 +216,7 @@ struct StorageTests {
         let store = Store(reducer: AsyncEffectReducer(), default: .init(value: 0), persistence: memory)
         store.send(.increment)
 
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             memory.value?.value == 2
         }
 

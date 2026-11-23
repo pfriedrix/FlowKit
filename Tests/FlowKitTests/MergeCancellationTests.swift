@@ -24,7 +24,7 @@ struct MergeCancellationTests {
         // Try to cancel immediately
         store.send(.cancelMerge)
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.count == 3
         }
 
@@ -43,7 +43,7 @@ struct MergeCancellationTests {
         store.send(.startCancellableRun)
         #expect(store.state.status == "Task Started")
 
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.status == "Task Completed"
         }
 

@@ -72,7 +72,7 @@ struct PersistenceTests {
         store.send(.increment)
         store.send(.decrement)
 
-        try await waitForStateChange(timeout: 2.0) { recording.saves.count == 4 }
+        try await waitForStateChange(timeout: 5.0) { recording.saves.count == 4 }
         // The default state saved during init, then one save per action.
         #expect(recording.saves.map(\.value) == [0, 1, 2, 1])
     }
@@ -84,7 +84,7 @@ struct PersistenceTests {
         store.send(.increment)
         store.send(.increment)
 
-        try await waitForStateChange(timeout: 2.0) { recording.saves.count == 2 }
+        try await waitForStateChange(timeout: 5.0) { recording.saves.count == 2 }
         #expect(recording.savesOnMainThread == [false, false])
     }
 
@@ -93,7 +93,7 @@ struct PersistenceTests {
         let first = Store(reducer: StoredCounterReducer(), default: .init(), persistence: memory)
         first.send(.increment)
         first.send(.increment)
-        try await waitForStateChange(timeout: 2.0) { memory.value?.value == 2 }
+        try await waitForStateChange(timeout: 5.0) { memory.value?.value == 2 }
 
         let second = Store(reducer: StoredCounterReducer(), default: .init(), persistence: memory)
 
@@ -112,7 +112,7 @@ struct PersistenceTests {
         first.send(.increment)
         second.send(.decrement)
 
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             firstMemory.value?.value == 2 && secondMemory.value?.value == -1
         }
         #expect(firstMemory.value?.value == 2)

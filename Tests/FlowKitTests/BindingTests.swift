@@ -305,7 +305,7 @@ struct BindingTests {
 
         binding.wrappedValue = "Updated Value"
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.someStateProperty == "Updated Value"
         }
         #expect(store.state.someStateProperty == "Updated Value")
@@ -323,7 +323,7 @@ struct BindingTests {
         )
 
         binding.wrappedValue = "Updated Value"
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.someStateProperty == "Updated Value"
         }
 

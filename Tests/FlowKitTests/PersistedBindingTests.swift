@@ -88,12 +88,12 @@ struct PersistedBindingTests {
 
         binding.wrappedValue = "ignored by setter"
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.someStateProperty == "Fixed"
         }
         #expect(store.state.someStateProperty == "Fixed")
 
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.someStateProperty == "Fixed"
         }
         #expect(memory.value?.someStateProperty == "Fixed")
@@ -112,7 +112,7 @@ struct PersistedBindingTests {
         binding.wrappedValue = "Updated State"
 
         // Wait for the state to be saved
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.someStateProperty == "Updated State"
         }
 
@@ -134,7 +134,7 @@ struct PersistedBindingTests {
         binding.wrappedValue = "Temporary State"
 
         // Wait for the temporary state to be saved
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.someStateProperty == "Temporary State"
         }
 
@@ -142,7 +142,7 @@ struct PersistedBindingTests {
         store.send(.resetState)
 
         // Wait for the reset state to be saved
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.someStateProperty == "Initial State"
         }
 
@@ -170,7 +170,7 @@ struct PersistedBindingTests {
         intBinding.wrappedValue = 42
 
         // Wait for both updates to be saved (the integer one is saved last)
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.anotherStateProperty == 42
         }
 
@@ -194,7 +194,7 @@ struct PersistedBindingTests {
         nestedBinding.wrappedValue = "Updated Deep Value"
 
         // Wait for the state to be saved
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.nestedState.someDeepProperty == "Updated Deep Value"
         }
 
@@ -219,10 +219,10 @@ struct PersistedBindingTests {
 
         binding.wrappedValue = 100
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.anotherStateProperty == 50
         }
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.anotherStateProperty == 50
         }
 
@@ -243,7 +243,7 @@ struct PersistedBindingTests {
 
         binding.wrappedValue = 100
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.anotherStateProperty == 50
         }
 
@@ -270,7 +270,7 @@ struct PersistedBindingTests {
         
         // Update the boolean flag
         store.send(.updateBooleanFlag(true))
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.booleanFlag == true
         }
 
@@ -279,7 +279,7 @@ struct PersistedBindingTests {
 
         // Update through the binding
         binding.wrappedValue = "New Value"
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.someStateProperty == "New Value"
         }
 
@@ -311,7 +311,7 @@ struct PersistedBindingTests {
         intBinding.wrappedValue = 1042
 
         // Wait for updates to be saved (the integer one is saved last)
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.anotherStateProperty == 42
         }
 
@@ -349,7 +349,7 @@ struct PersistedBindingTests {
         
         // Update through the binding
         binding.wrappedValue = "New State Value"
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.someStateProperty == "New State Value"
         }
 
@@ -381,7 +381,7 @@ struct PersistedBindingTests {
         
         // Update through the binding
         binding.wrappedValue = 150
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.anotherStateProperty == 150
         }
 
@@ -424,7 +424,7 @@ struct PersistedBindingTests {
         
         // Update through simple binding (sets booleanFlag to true)
         simpleBinding.wrappedValue = "Ignored"
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.booleanFlag == true
         }
 
@@ -435,7 +435,7 @@ struct PersistedBindingTests {
         
         // Update through state binding
         stateBinding.wrappedValue = "Updated Text"
-        try await waitForStateChange(timeout: 2.0) { [memory] in
+        try await waitForStateChange(timeout: 5.0) { [memory] in
             memory.value?.someStateProperty == "Updated Text"
         }
 

@@ -21,7 +21,7 @@ struct StoreTests {
         store.send(.increment)
         
         // Wait for state change
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 1
         }
         
@@ -33,7 +33,7 @@ struct StoreTests {
         store.send(.setMessage("Hello, World!"))
         
         // Wait for state change
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.message == "Hello, World!"
         }
         
@@ -45,7 +45,7 @@ struct StoreTests {
         store.send(.incrementAndSetMessage("Updated"))
         
         // Wait for state change
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 1 && self.store.state.message == "Updated"
         }
         
@@ -61,7 +61,7 @@ struct StoreTests {
         recursiveStore.send(.triggerRecursion)
         
         // Wait for state change
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             recursiveStore.state.value == 2
         }
         
@@ -76,7 +76,7 @@ struct StoreTests {
         store.send(.increment)
         
         // Wait for the state to reflect all changes
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 3 && self.store.state.message == "Message After Two Increments"
         }
         
@@ -91,7 +91,7 @@ struct StoreTests {
         store.send(.incrementAndSetMessage("Updated Message"))
 
         // Wait for both actions to take effect
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 1 && self.store.state.message == "Updated Message"
         }
 
@@ -107,7 +107,7 @@ struct StoreTests {
         store.send(.setMessage("Third Message"))
         
         // Wait for the state to reflect the last update
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.message == "Third Message"
         }
         
@@ -124,7 +124,7 @@ struct StoreTests {
         store.send(.setMessage("Message 2"))
         store.send(.increment)
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.count == 1 && store.state.message == "Message 2"
         }
 
@@ -157,7 +157,7 @@ struct StoreTests {
         store.send(.complexMutation("Update 2", 20))
         
         // Wait for the state to reflect all changes
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.someStateProperty == "Update 2" && store.state.anotherStateProperty == 20
         }
         

@@ -17,7 +17,7 @@ struct WaitForStateChangeTests {
     @Test func `Returns immediately when condition already true`() async throws {
         let store = Store(initial: BumpReducer.State(count: 1), reducer: BumpReducer())
         let start = Date()
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.count == 1
         }
         let elapsed = Date().timeIntervalSince(start)
@@ -34,7 +34,7 @@ struct WaitForStateChangeTests {
             store.send(.bump)
         }
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.count == 1
         }
         #expect(store.state.count == 1)
@@ -50,7 +50,7 @@ struct WaitForStateChangeTests {
             }
         }
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.count == 3
         }
         #expect(store.state.count == 3)

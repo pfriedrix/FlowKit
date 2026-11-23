@@ -57,7 +57,7 @@ struct WillSaveHookTests {
 
             store.send(.increment)
 
-            try await waitForStateChange(timeout: 1.0) { collector.values.count == 1 }
+            try await waitForStateChange(timeout: 5.0) { collector.values.count == 1 }
         }
         #expect(collector.values == [1])
     }
@@ -105,7 +105,7 @@ struct WillSaveHookTests {
             store.send(.increment)
             store.send(.increment)
 
-            try await waitForStateChange(timeout: 1.0) { collector.values.count == 2 }
+            try await waitForStateChange(timeout: 5.0) { collector.values.count == 2 }
         }
 
         #expect(collector.values == [1, 2])

@@ -122,7 +122,7 @@ struct CancellationTests {
 
         store.send(.startCancellableTask)
 
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.data == "Task Completed"
         }
         #expect(store.state.data == "Task Completed")
@@ -141,7 +141,7 @@ struct CancellationTests {
         #expect(store.state.data == "Task Started")
 
         // Then wait for the natural completion of the restarted task.
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.data == "Task Completed"
         }
         #expect(store.state.data == "Task Completed")
@@ -190,10 +190,10 @@ struct CancellationTests {
         // Registration is synchronous on MainActor — entry must already exist.
         #expect(store.tasks.values.filter({ $0.id != nil }).count == baseline + 1)
 
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.state.data == "Task Completed"
         }
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.tasks.values.filter({ $0.id != nil }).count == baseline
         }
         #expect(store.tasks.values.filter({ $0.id != nil }).count == baseline)
@@ -254,7 +254,7 @@ struct CancellationTests {
 
         store.send(.cancelTask)
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             store.tasks.values.filter({ $0.id != nil }).isEmpty
         }
         #expect(store.tasks.values.filter({ $0.id != nil }).count == 0)

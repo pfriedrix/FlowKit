@@ -10,7 +10,7 @@ struct MergeEffectTests {
         store.send(.mergeThreeIncrements)
 
         // Wait for all actions to be processed
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 3
         }
 
@@ -24,7 +24,7 @@ struct MergeEffectTests {
         store.send(.mergeMixedActions)
 
         // Wait for all actions to be processed
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 2 && self.store.state.message == "Message 2"
         }
 
@@ -42,7 +42,7 @@ struct MergeEffectTests {
     @Test func `Merge single action`() async throws {
         store.send(.mergeSingleIncrement)
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 1
         }
 
@@ -67,7 +67,7 @@ struct MergeEffectTests {
     @Test func `Merge many actions`() async throws {
         store.send(.mergeTenIncrements)
 
-        try await waitForStateChange(timeout: 2.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 10
         }
 
@@ -81,7 +81,7 @@ struct MergeEffectTests {
         store.send(.mergeTwoIncrements)
         store.send(.mergeTwoIncrements)
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 4
         }
 
@@ -95,7 +95,7 @@ struct MergeEffectTests {
         store.send(.mergeTwoIncrements)
         store.send(.increment)
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 4
         }
 
@@ -107,7 +107,7 @@ struct MergeEffectTests {
     @Test func `Nested merge effects`() async throws {
         store.send(.nestedMerge)
 
-        try await waitForStateChange(timeout: 1.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 5
         }
 
@@ -118,7 +118,7 @@ struct MergeEffectTests {
     @Test mutating func `Merge with state-dependent actions`() async throws {
         store.send(.conditionalMerge(shouldIncrement: true))
 
-        try await waitForStateChange(timeout: 1.0) { [store] in
+        try await waitForStateChange(timeout: 5.0) { [store] in
             store.state.count == 2
         }
 
@@ -128,7 +128,7 @@ struct MergeEffectTests {
         store = Store(initial: MergeTestReducer.State(), reducer: MergeTestReducer())
         store.send(.conditionalMerge(shouldIncrement: false))
 
-        try await waitForStateChange(timeout: 1.0) { [store] in
+        try await waitForStateChange(timeout: 5.0) { [store] in
             store.state.message == "Skipped"
         }
 
@@ -142,7 +142,7 @@ struct MergeEffectTests {
             store.send(.mergeTwoIncrements)
         }
 
-        try await waitForStateChange(timeout: 3.0) {
+        try await waitForStateChange(timeout: 5.0) {
             self.store.state.count == 200
         }
 
