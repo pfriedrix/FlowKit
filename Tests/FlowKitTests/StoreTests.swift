@@ -168,8 +168,10 @@ struct StoreTests {
     /// Swift Testing runs suites in parallel, and they all share MainActor. Thousands of
     /// synchronous sends in one go hold MainActor for over a second on CI, long enough for
     /// other suites' `waitForStateChange` timeouts to fire. Yield between bursts instead.
+    /// A burst of 50 takes about 7ms on CI. The three tests that use this run at the
+    /// same time, so a waiting test sits behind up to three bursts per MainActor hop.
     private func yieldAfterBurst(_ sent: Int) async {
-        if sent.isMultiple(of: 500) {
+        if sent.isMultiple(of: 50) {
             await Task.yield()
         }
     }
