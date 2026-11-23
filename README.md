@@ -76,7 +76,7 @@ public final class Store<R: Reducer> {
 
 `state` is read-only for callers; change it by sending an action.
 
-A second initializer is available when `State: Storable` — see [Persistence](#persistence).
+A second initializer, `init(reducer:default:persistence:)`, restores the state and saves it after every action — see [Persistence](#persistence).
 
 ## Reducer
 
@@ -140,35 +140,91 @@ return .send(\.analyticsStore, action: .screenViewed)
 
 ## Persistence
 
-### Storable
+A store persists its state when it is created with a `persistence:`. The code that creates the store picks where the state goes, so the `State` type doesn't need to know where it is kept:
 
 ```swift
-public protocol Storable {
-    func save()
-    static func load() -> Self?
+let store = Store(
+    reducer: AppReducer(),
+    default: AppState(),
+    persistence: .userDefaults(key: "app")
+)
+```
+
+This restores from `persistence.load()` if available, otherwise starts from `default` and saves it. After every `send(_:)` the new state goes to `persistence.save(_:)` on a per-store serial background queue, so saving stays off MainActor and keeps the order of actions.
+
+### The Persistence protocol
+
+```swift
+public protocol Persistence<State>: Sendable {
+    associatedtype State
+    func load() -> State?
+    func save(_ state: State)
 }
 ```
 
-When `State: Storable`, use the convenience initializer to wire automatic save-on-action:
+FlowKit ships two:
+
+- `.userDefaults(_:key:)` — keeps a `Codable` state as JSON in `UserDefaults`. It uses `.standard` unless you pass a suite, e.g. `.userDefaults(UserDefaults(suiteName: "group.my.app")!, key: "app")` for an App Group.
+- `InMemoryPersistence` — keeps the state in memory, for tests and headless runs.
+
+The key is yours, not derived from the type name: renaming or moving the state type doesn't lose saved data, and two stores with the same `State` persist independently under different keys.
+
+For another backing store (Keychain, files, SwiftData…) conform a small type to `Persistence`:
 
 ```swift
+struct FilePersistence<State: Codable>: Persistence {
+    let url: URL
+
+    func load() -> State? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(State.self, from: data)
+    }
+
+    func save(_ state: State) {
+        guard let data = try? JSONEncoder().encode(state) else { return }
+        try? data.write(to: url, options: .atomic)
+    }
+}
+```
+
+### Testing a persistent store
+
+`InMemoryPersistence` starts a store from any saved state and shows what the store saved, without touching `UserDefaults`:
+
+```swift
+let memory = InMemoryPersistence(AppState(isLoggedIn: true))
+let store = Store(reducer: AppReducer(), default: AppState(), persistence: memory)
+
+store.send(.logout)
+
+try await waitForStateChange(timeout: 1) {
+    memory.value?.isLoggedIn == false
+}
+```
+
+`memory.value` is the last saved state. Saves arrive from the background queue, so wait for it instead of reading it right after `send(_:)`.
+
+### Migrating from Storable and Persistable
+
+`Storable`, `Persistable` and `Store(reducer:default:)` are deprecated. They still work, but they make the state type decide where it is persisted, so every store with that state shares one place.
+
+```swift
+// before
+struct AppState: Persistable, Equatable { … }
 let store = Store(reducer: AppReducer(), default: AppState())
+
+// after
+struct AppState: Codable, Equatable { … }
+let store = Store(
+    reducer: AppReducer(),
+    default: AppState(),
+    persistence: .userDefaults(key: "MyApp.AppState")
+)
 ```
 
-This restores from `State.load()` if available, otherwise seeds with `default` and saves it. Subsequent `send(_:)` calls fire `state.save()` on a per-store serial background queue, so encoding stays off MainActor.
+`Persistable` saved to `UserDefaults.standard` under `String(reflecting: AppState.self)`. To keep reading that data, print this string once and pass it as the key, written out as a literal. The stored format is the same.
 
-### Persistable
-
-`Persistable: Storable, Codable` ships default JSON + `UserDefaults` implementations keyed by `String(reflecting: Self.self)`. Conformance is one line:
-
-```swift
-struct AppState: Persistable, Equatable {
-    var count = 0
-    var isLoggedIn = false
-}
-```
-
-For custom backing stores (Keychain, files, SwiftData…) implement `Storable` directly.
+A state that implemented `Storable` by hand moves the bodies of `save()` and `load()` into a `Persistence` type.
 
 ## Dependency injection
 
@@ -276,6 +332,8 @@ try await waitForStateChange(timeout: 1) {
 ```
 
 It observes `@Observable` notifications and falls back to short polling, so it returns as soon as the predicate flips.
+
+For stores that persist their state, see [Testing a persistent store](#testing-a-persistent-store).
 
 ## License
 

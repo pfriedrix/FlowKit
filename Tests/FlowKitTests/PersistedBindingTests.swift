@@ -2,32 +2,19 @@ import XCTest
 import SwiftUI
 @testable import FlowKit
 
-final class StorableBindingTests: XCTestCase {
+/// Bindings on a store that persists its state: writing through a binding
+/// dispatches the action, and the resulting state reaches the persistence.
+final class PersistedBindingTests: XCTestCase {
 
     struct AppReducer: Reducer {
-        struct State: Equatable, Storable, Codable {
+        struct State: Equatable {
             var someStateProperty: String = "Initial State"
             var anotherStateProperty: Int = 0
             var booleanFlag: Bool = false
             var nestedState: NestedState = NestedState()
 
-            struct NestedState: Equatable, Codable {
+            struct NestedState: Equatable {
                 var someDeepProperty: String = "Initial Deep State"
-            }
-
-            // MARK: - Storable Conformance
-            func save() {
-                if let data = try? JSONEncoder().encode(self) {
-                    UserDefaults.standard.set(data, forKey: "AppState")
-                }
-            }
-
-            static func load() -> State? {
-                guard let data = UserDefaults.standard.data(forKey: "AppState"),
-                      let state = try? JSONDecoder().decode(State.self, from: data) else {
-                    return nil
-                }
-                return state
             }
         }
 
@@ -75,22 +62,14 @@ final class StorableBindingTests: XCTestCase {
     }
 
     // MARK: - Test Helper Function
-    
+
+    /// Where the store under test saves its state. Fresh for every test:
+    /// XCTest creates one test case instance per test method.
+    private let memory = InMemoryPersistence<AppReducer.State>()
+
     @MainActor
     func createStore() -> Store<AppReducer> {
-        return Store(reducer: AppReducer(), default: AppReducer.State())
-    }
-
-    override func setUp() {
-        super.setUp()
-        // Remove any previously saved state
-        UserDefaults.standard.removeObject(forKey: "AppState")
-    }
-
-    override func tearDown() {
-        // Clean up after each test
-        UserDefaults.standard.removeObject(forKey: "AppState")
-        super.tearDown()
+        return Store(reducer: AppReducer(), default: AppReducer.State(), persistence: memory)
     }
 
     // MARK: - Test Cases
@@ -114,8 +93,10 @@ final class StorableBindingTests: XCTestCase {
         }
         XCTAssertEqual(store.state.someStateProperty, "Fixed")
 
-        try await Task.sleep(nanoseconds: 100_000_000) // save hop
-        XCTAssertEqual(AppReducer.State.load()?.someStateProperty, "Fixed")
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.someStateProperty == "Fixed"
+        }
+        XCTAssertEqual(memory.value?.someStateProperty, "Fixed")
     }
 
     /// Test that the state is saved after an action updates it.
@@ -130,11 +111,13 @@ final class StorableBindingTests: XCTestCase {
         // Modify the binding's value (this should trigger an action and save the state)
         binding.wrappedValue = "Updated State"
 
-        // Wait for the state to be updated
-        try await Task.sleep(nanoseconds: 100_000_000)
+        // Wait for the state to be saved
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.someStateProperty == "Updated State"
+        }
 
-        // Ensure the state is saved in UserDefaults
-        let savedState = AppReducer.State.load()
+        // Ensure the state is saved
+        let savedState = memory.value
         XCTAssertEqual(savedState?.someStateProperty, "Updated State", "The state should be saved after the binding is modified.")
     }
 
@@ -149,18 +132,22 @@ final class StorableBindingTests: XCTestCase {
 
         // Modify the binding's value
         binding.wrappedValue = "Temporary State"
-        
-        // Wait for the state to be reset
-        try await Task.sleep(nanoseconds: 100_000_000)
-        
+
+        // Wait for the temporary state to be saved
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.someStateProperty == "Temporary State"
+        }
+
         // Dispatch the reset action
         store.send(.resetState)
 
-        // Wait for background save to complete
-        try await Task.sleep(nanoseconds: 100_000_000)
+        // Wait for the reset state to be saved
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.someStateProperty == "Initial State"
+        }
 
         // Ensure the state is reset and saved
-        let savedState = AppReducer.State.load()
+        let savedState = memory.value
         XCTAssertEqual(savedState?.someStateProperty, "Initial State", "The state should be reset to the initial state.")
     }
 
@@ -182,11 +169,13 @@ final class StorableBindingTests: XCTestCase {
         stringBinding.wrappedValue = "Updated String"
         intBinding.wrappedValue = 42
 
-        // Wait for both updates to be saved
-        try await Task.sleep(nanoseconds: 100_000_000)
+        // Wait for both updates to be saved (the integer one is saved last)
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.anotherStateProperty == 42
+        }
 
         // Ensure the state is saved
-        let savedState = AppReducer.State.load()
+        let savedState = memory.value
         XCTAssertEqual(savedState?.someStateProperty, "Updated String", "The string state should be updated and saved.")
         XCTAssertEqual(savedState?.anotherStateProperty, 42, "The integer state should be updated and saved.")
     }
@@ -204,16 +193,18 @@ final class StorableBindingTests: XCTestCase {
         // Modify the binding's value (this should trigger an action and save the state)
         nestedBinding.wrappedValue = "Updated Deep Value"
 
-        // Wait for the state to be updated
-        try await Task.sleep(nanoseconds: 100_000_000)
+        // Wait for the state to be saved
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.nestedState.someDeepProperty == "Updated Deep Value"
+        }
 
         // Ensure the deeply nested state is saved
-        let savedState = AppReducer.State.load()
+        let savedState = memory.value
         XCTAssertEqual(savedState?.nestedState.someDeepProperty, "Updated Deep Value", "The deeply nested state should be saved.")
     }
     
-    // MARK: - Custom Getter Binding Tests for Storable State
-    
+    // MARK: - Custom Getter Binding Tests for Persisted State
+
     /// Setting via a custom-getter binding dispatches the inverse-transformed action and persists it.
     @MainActor
     func testCustomGetterBinding_persistsInverseTransformedValue() async throws {
@@ -231,9 +222,11 @@ final class StorableBindingTests: XCTestCase {
         try await waitForStateChange(timeout: 1.0) {
             store.state.anotherStateProperty == 50
         }
-        try await Task.sleep(nanoseconds: 100_000_000) // save hop
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.anotherStateProperty == 50
+        }
 
-        XCTAssertEqual(AppReducer.State.load()?.anotherStateProperty, 50)
+        XCTAssertEqual(memory.value?.anotherStateProperty, 50)
     }
 
     /// The getter re-derives from current state, returning the forward-transformed value.
@@ -277,17 +270,21 @@ final class StorableBindingTests: XCTestCase {
         
         // Update the boolean flag
         store.send(.updateBooleanFlag(true))
-        try await Task.sleep(nanoseconds: 100_000_000)
-        
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.booleanFlag == true
+        }
+
         // Now returns the actual state property
         XCTAssertEqual(binding.wrappedValue, "Initial State", "The binding should return state property when flag is true.")
-        
+
         // Update through the binding
         binding.wrappedValue = "New Value"
-        try await Task.sleep(nanoseconds: 100_000_000)
-        
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.someStateProperty == "New Value"
+        }
+
         // Verify the state was saved
-        let savedState = AppReducer.State.load()
+        let savedState = memory.value
         XCTAssertEqual(savedState?.someStateProperty, "New Value", "The state should be saved with the new value.")
         XCTAssertEqual(savedState?.booleanFlag, true, "The boolean flag should remain true.")
     }
@@ -312,12 +309,14 @@ final class StorableBindingTests: XCTestCase {
         // Update through both bindings
         stringBinding.wrappedValue = "hello world"
         intBinding.wrappedValue = 1042
-        
-        // Wait for updates to be saved
-        try await Task.sleep(nanoseconds: 100_000_000)
-        
+
+        // Wait for updates to be saved (the integer one is saved last)
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.anotherStateProperty == 42
+        }
+
         // Verify both values were saved correctly
-        let savedState = AppReducer.State.load()
+        let savedState = memory.value
         XCTAssertEqual(savedState?.someStateProperty, "HELLO WORLD", "String should be saved as uppercase.")
         XCTAssertEqual(savedState?.anotherStateProperty, 42, "Integer should be saved with offset removed.")
         
@@ -350,10 +349,12 @@ final class StorableBindingTests: XCTestCase {
         
         // Update through the binding
         binding.wrappedValue = "New State Value"
-        try await Task.sleep(nanoseconds: 100_000_000)
-        
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.someStateProperty == "New State Value"
+        }
+
         // Verify the state was saved
-        let savedState = AppReducer.State.load()
+        let savedState = memory.value
         XCTAssertEqual(savedState?.someStateProperty, "New State Value", "The state should be saved with the new value.")
         
         // The getter still returns the fixed value
@@ -380,10 +381,12 @@ final class StorableBindingTests: XCTestCase {
         
         // Update through the binding
         binding.wrappedValue = 150
-        try await Task.sleep(nanoseconds: 100_000_000)
-        
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.anotherStateProperty == 150
+        }
+
         // Verify the state was saved
-        let savedState = AppReducer.State.load()
+        let savedState = memory.value
         XCTAssertEqual(savedState?.anotherStateProperty, 150, "The state should be saved with the new value.")
         
         // The getter still returns the computed constant
@@ -421,19 +424,23 @@ final class StorableBindingTests: XCTestCase {
         
         // Update through simple binding (sets booleanFlag to true)
         simpleBinding.wrappedValue = "Ignored"
-        try await Task.sleep(nanoseconds: 100_000_000)
-        
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.booleanFlag == true
+        }
+
         // Verify state was updated and saved
-        let savedState1 = AppReducer.State.load()
+        let savedState1 = memory.value
         XCTAssertEqual(savedState1?.booleanFlag, true, "Boolean flag should be true.")
         XCTAssertEqual(stateBinding.wrappedValue, "Enabled", "State binding should now show enabled.")
         
         // Update through state binding
         stateBinding.wrappedValue = "Updated Text"
-        try await Task.sleep(nanoseconds: 100_000_000)
-        
+        try await waitForStateChange(timeout: 2.0) { [memory] in
+            memory.value?.someStateProperty == "Updated Text"
+        }
+
         // Verify both states were saved
-        let savedState2 = AppReducer.State.load()
+        let savedState2 = memory.value
         XCTAssertEqual(savedState2?.someStateProperty, "Updated Text", "Text should be updated.")
         XCTAssertEqual(savedState2?.booleanFlag, true, "Boolean flag should remain true.")
     }

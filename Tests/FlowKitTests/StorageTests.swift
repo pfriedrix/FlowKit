@@ -3,33 +3,17 @@ import XCTest
 
 @MainActor
 class StorageTests: XCTestCase {
-    
+
     struct MockReducer: Reducer {
-        struct State: Storable, Codable, Equatable {
+        struct State: Equatable {
             var value: Int
-            
-            // Save the state to persistent storage
-            func save() {
-                if let data = try? JSONEncoder().encode(self) {
-                    UserDefaults.standard.set(data, forKey: "MockState")
-                }
-            }
-            
-            // Load the state from persistent storage
-            static func load() -> State? {
-                guard let data = UserDefaults.standard.data(forKey: "MockState"),
-                      let state = try? JSONDecoder().decode(State.self, from: data) else {
-                    return nil
-                }
-                return state
-            }
         }
-        
+
         enum Action {
             case increment
             case decrement
         }
-        
+
         func reduce(into state: inout State, action: Action) -> Effect<Action> {
             switch action {
             case .increment:
@@ -40,140 +24,106 @@ class StorageTests: XCTestCase {
             return .none
         }
     }
-    
-    // This runs before each test to ensure a clean slate.
-    nonisolated override func setUp() {
-        super.setUp()
-        clearUserDefaults()
-    }
 
-    // This runs after each test to clean up the state.
-    nonisolated override func tearDown() {
-        clearUserDefaults()
-        super.tearDown()
-    }
-
-    nonisolated private func clearUserDefaults() {
-        if let appDomain = Bundle.main.bundleIdentifier {
-            UserDefaults.standard.removePersistentDomain(forName: appDomain)
-        }
-        UserDefaults.standard.synchronize()
-    }
-    
     // Test that state is saved after sending an action
     @MainActor
     func testStateSaving() async throws {
         // Given
+        let memory = InMemoryPersistence<MockReducer.State>()
         let initialState = MockReducer.State(value: 0)
         let reducer = MockReducer()
 
         // When
-        let store = Store(reducer: reducer, default: initialState)
+        let store = Store(reducer: reducer, default: initialState, persistence: memory)
         store.send(.increment)
 
-        // Wait for background save to complete
-        try await Task.sleep(nanoseconds: 100_000_000)
-
         // Then
-        let savedState = MockReducer.State.load()
-        XCTAssertEqual(savedState?.value, 1)
+        try await waitForStateChange(timeout: 2.0) { memory.value?.value == 1 }
+        XCTAssertEqual(memory.value?.value, 1)
     }
-    
-    // Test that state is loaded from persistent storage when initializing the store
+
+    // Test that state is loaded from storage when initializing the store
     func testStateLoading() {
         // Given
-        let savedState = MockReducer.State(value: 42)
-        savedState.save() // Save the state in UserDefaults
-        
+        let memory = InMemoryPersistence(MockReducer.State(value: 42))
         let reducer = MockReducer()
-        
+
         // When
-        let store = Store(reducer: reducer, default: MockReducer.State(value: 0))
-        
+        let store = Store(reducer: reducer, default: MockReducer.State(value: 0), persistence: memory)
+
         // Then
         XCTAssertEqual(store.state.value, 42)
     }
-    
+
     // Test that state is correctly updated and saved after multiple actions
     @MainActor
     func testDispatchAndSave() async throws {
         // Given
+        let recording = RecordingPersistence<MockReducer.State>()
         let initialState = MockReducer.State(value: 0)
         let reducer = MockReducer()
 
         // When
-        let store = Store(reducer: reducer, default: initialState)
+        let store = Store(reducer: reducer, default: initialState, persistence: recording)
         store.send(.increment)  // +1
         store.send(.increment)  // +1
         store.send(.decrement)  // -1
 
-        // Wait for background save to complete
-        try await Task.sleep(nanoseconds: 100_000_000)
-
-        // Then
-        let savedState = MockReducer.State.load()
-        XCTAssertEqual(savedState?.value, 1)
+        // Then: one save for the default state, then one per action
+        try await waitForStateChange(timeout: 2.0) { recording.saves.count == 4 }
+        XCTAssertEqual(recording.saves.last?.value, 1)
     }
-    
+
     // Test that state defaults to the provided initial state if no saved state exists
     func testStateNotLoadedIfNoSavedStateExists() {
         // Given
+        let memory = InMemoryPersistence<MockReducer.State>()
         let reducer = MockReducer()
-        
-        // Ensure no state is saved in UserDefaults
-        UserDefaults.standard.removeObject(forKey: "MockState")
-        
+
         // When
-        let store = Store(reducer: reducer, default: MockReducer.State(value: 10))
-        
+        let store = Store(reducer: reducer, default: MockReducer.State(value: 10), persistence: memory)
+
         // Then
         XCTAssertEqual(store.state.value, 10)  // Default state should be used
     }
-    
+
     @MainActor
     func testStateSavingAfterMultipleActions() async throws {
         // Given
+        let recording = RecordingPersistence<MockReducer.State>()
         let initialState = MockReducer.State(value: 0)
         let reducer = MockReducer()
 
         // When
-        let store = Store(reducer: reducer, default: initialState)
+        let store = Store(reducer: reducer, default: initialState, persistence: recording)
         store.send(.increment)  // +1
         store.send(.increment)  // +1
         store.send(.decrement)  // -1
 
-        // Wait for background save to complete
-        try await Task.sleep(nanoseconds: 100_000_000)
-
-        // Then
-        let savedState = MockReducer.State.load()
-        XCTAssertEqual(savedState?.value, 1)  // 1 = 0 + 1 + 1 - 1
+        // Then: one save for the default state, then one per action
+        try await waitForStateChange(timeout: 2.0) { recording.saves.count == 4 }
+        XCTAssertEqual(recording.saves.last?.value, 1)  // 1 = 0 + 1 + 1 - 1
     }
 
     @MainActor
     func testStateLoadingAndFurtherDispatch() async throws {
         // Given
-        let savedState = MockReducer.State(value: 10)
-        savedState.save()  // Simulate a saved state
-
+        let memory = InMemoryPersistence(MockReducer.State(value: 10))  // Simulate a saved state
         let reducer = MockReducer()
 
         // When
-        let store = Store(reducer: reducer, default: MockReducer.State(value: 0))
+        let store = Store(reducer: reducer, default: MockReducer.State(value: 0), persistence: memory)
         store.send(.decrement)  // 10 -> 9
 
-        // Wait for background save to complete
-        try await Task.sleep(nanoseconds: 100_000_000)
-
         // Then
-        let updatedState = MockReducer.State.load()
-        XCTAssertEqual(updatedState?.value, 9)
+        try await waitForStateChange(timeout: 2.0) { memory.value?.value == 9 }
+        XCTAssertEqual(memory.value?.value, 9)
     }
 
     @MainActor
     func testEffectHandlingInReducer() async throws {
         struct EffectReducer: Reducer {
-            struct State: Persistable, Equatable {
+            struct State: Equatable {
                 var value: Int
             }
 
@@ -198,38 +148,24 @@ class StorageTests: XCTestCase {
         }
 
         // Given
+        let recording = RecordingPersistence<EffectReducer.State>()
         let initialState = EffectReducer.State(value: 0)
         let reducer = EffectReducer()
 
         // When
-        let store = Store(reducer: reducer, default: initialState)
+        let store = Store(reducer: reducer, default: initialState, persistence: recording)
         store.send(.increment)  // +1, then trigger decrement -> -1
 
-        // Wait for background save to complete
-        try await Task.sleep(nanoseconds: 100_000_000)
-
-        // Then
-        let savedState = EffectReducer.State.load()
-        XCTAssertEqual(savedState?.value, 0)  // Final value should be 0 after both increment and decrement
+        // Then: one save for the default state, then one per action in the chain
+        try await waitForStateChange(timeout: 2.0) { recording.saves.count == 4 }
+        XCTAssertEqual(recording.saves.last?.value, 0)  // Final value should be 0 after both increment and decrement
     }
 
     @MainActor
     func testNoNegativeStateValues() async throws {
         struct NonNegativeReducer: Reducer {
-            struct State: Storable, Codable, Equatable {
+            struct State: Equatable {
                 var value: Int
-                func save() {
-                    if let data = try? JSONEncoder().encode(self) {
-                        UserDefaults.standard.set(data, forKey: "NonNegativeState")
-                    }
-                }
-                static func load() -> State? {
-                    guard let data = UserDefaults.standard.data(forKey: "NonNegativeState"),
-                          let state = try? JSONDecoder().decode(State.self, from: data) else {
-                        return nil
-                    }
-                    return state
-                }
             }
 
             enum Action {
@@ -248,24 +184,23 @@ class StorageTests: XCTestCase {
         }
 
         // Given
+        let recording = RecordingPersistence<NonNegativeReducer.State>()
         let initialState = NonNegativeReducer.State(value: 0)
         let reducer = NonNegativeReducer()
 
         // When
-        let store = Store(reducer: reducer, default: initialState)
+        let store = Store(reducer: reducer, default: initialState, persistence: recording)
         store.send(.decrement)  // Try to decrement below zero
 
-        // Wait for background save to complete
-        try await Task.sleep(nanoseconds: 100_000_000)
-
-        // Then
-        let savedState = NonNegativeReducer.State.load()
-        XCTAssertEqual(savedState?.value, 0)  // Value should remain 0
+        // Then: one save for the default state, one for the action
+        try await waitForStateChange(timeout: 2.0) { recording.saves.count == 2 }
+        XCTAssertEqual(recording.saves.last?.value, 0)  // Value should remain 0
     }
 
     @MainActor
     func testAsyncEffectHandling_updatesInMemoryState() async throws {
-        let store = Store(reducer: AsyncEffectReducer(), default: .init(value: 0))
+        let memory = InMemoryPersistence<AsyncEffectReducer.State>()
+        let store = Store(reducer: AsyncEffectReducer(), default: .init(value: 0), persistence: memory)
         store.send(.increment)
 
         try await waitForStateChange(timeout: 2.0) {
@@ -277,21 +212,20 @@ class StorageTests: XCTestCase {
 
     @MainActor
     func testAsyncEffectHandling_persistsFinalState() async throws {
-        let store = Store(reducer: AsyncEffectReducer(), default: .init(value: 0))
+        let memory = InMemoryPersistence<AsyncEffectReducer.State>()
+        let store = Store(reducer: AsyncEffectReducer(), default: .init(value: 0), persistence: memory)
         store.send(.increment)
 
         try await waitForStateChange(timeout: 2.0) {
-            store.state.value == 2
+            memory.value?.value == 2
         }
-        // willSave fires on a background queue; give it one more tick.
-        try await Task.sleep(nanoseconds: 100_000_000)
 
-        XCTAssertEqual(AsyncEffectReducer.State.load()?.value, 2)
+        XCTAssertEqual(memory.value?.value, 2)
     }
 }
 
 private struct AsyncEffectReducer: Reducer {
-    struct State: Persistable, Equatable {
+    struct State: Equatable {
         var value: Int
     }
 
