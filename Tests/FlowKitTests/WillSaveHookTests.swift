@@ -1,4 +1,4 @@
-import XCTest
+import Testing
 import os
 @testable import FlowKit
 
@@ -42,26 +42,27 @@ final class SaveCollector: @unchecked Sendable {
 }
 
 @MainActor
-final class WillSaveHookTests: XCTestCase {
+struct WillSaveHookTests {
 
-    func testWillSaveCalledAfterAction() async throws {
+    @Test func `willSave called after action`() async throws {
         let store = Store(initial: WillSaveReducer.State(), reducer: WillSaveReducer())
 
-        let expectation = XCTestExpectation(description: "willSave called")
         let collector = SaveCollector()
 
-        store.willSave = { state in
-            collector.append(state.count)
-            expectation.fulfill()
+        try await confirmation("willSave called") { confirm in
+            store.willSave = { state in
+                collector.append(state.count)
+                confirm()
+            }
+
+            store.send(.increment)
+
+            try await waitForStateChange(timeout: 1.0) { collector.values.count == 1 }
         }
-
-        store.send(.increment)
-
-        await fulfillment(of: [expectation], timeout: 1.0)
-        XCTAssertEqual(collector.values, [1])
+        #expect(collector.values == [1])
     }
 
-    func testWillSaveCalledForEveryAction() async throws {
+    @Test func `willSave called for every action`() async throws {
         let store = Store(initial: WillSaveReducer.State(), reducer: WillSaveReducer())
 
         let collector = SaveCollector()
@@ -76,10 +77,10 @@ final class WillSaveHookTests: XCTestCase {
 
         try await Task.sleep(nanoseconds: 100_000_000)
 
-        XCTAssertEqual(collector.values, [1, 2, 3])
+        #expect(collector.values == [1, 2, 3])
     }
 
-    func testWillSaveNotCalledWhenNil() async throws {
+    @Test func `willSave not called when nil`() async throws {
         let store = Store(initial: WillSaveReducer.State(), reducer: WillSaveReducer())
         store.willSave = nil
 
@@ -87,27 +88,27 @@ final class WillSaveHookTests: XCTestCase {
 
         try await Task.sleep(nanoseconds: 100_000_000)
 
-        XCTAssertEqual(store.state.count, 1)
+        #expect(store.state.count == 1)
     }
 
-    func testWillSaveReceivesUpdatedState() async throws {
+    @Test func `willSave receives updated state`() async throws {
         let store = Store(initial: WillSaveReducer.State(), reducer: WillSaveReducer())
 
-        let expectation = XCTestExpectation(description: "willSave receives updated state")
-        expectation.expectedFulfillmentCount = 2
         let collector = SaveCollector()
 
-        store.willSave = { state in
-            collector.append(state.count)
-            expectation.fulfill()
+        try await confirmation("willSave receives updated state", expectedCount: 2) { confirm in
+            store.willSave = { state in
+                collector.append(state.count)
+                confirm()
+            }
+
+            store.send(.increment)
+            store.send(.increment)
+
+            try await waitForStateChange(timeout: 1.0) { collector.values.count == 2 }
         }
 
-        store.send(.increment)
-        store.send(.increment)
-
-        await fulfillment(of: [expectation], timeout: 1.0)
-
-        XCTAssertEqual(collector.values, [1, 2])
-        XCTAssertEqual(store.state.count, 2)
+        #expect(collector.values == [1, 2])
+        #expect(store.state.count == 2)
     }
 }

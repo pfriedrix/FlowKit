@@ -1,24 +1,23 @@
 import os
-import XCTest
+import Testing
 @testable import FlowKit
 
 @MainActor
-final class StoreTests: XCTestCase {
+struct StoreTests {
     var store: Store<TestReducer> = Store(initial: TestReducer.State(), reducer: TestReducer())
     
-    override func setUp() {
-        super.setUp()
+    init() {
         Logger.logLevel = .info
     }
     
     // Test 1: Ensure the store initializes with the correct initial state.
-    func testInitialState() {
-        XCTAssertEqual(store.state.count, 0)
-        XCTAssertEqual(store.state.message, "")
+    @Test func `Initial state`() {
+        #expect(store.state.count == 0)
+        #expect(store.state.message == "")
     }
     
     // Test 2: Ensure that the state is updated when an increment action is sended.
-    func testIncrementAction() async throws {
+    @Test func `Increment action`() async throws {
         store.send(.increment)
         
         // Wait for state change
@@ -26,11 +25,11 @@ final class StoreTests: XCTestCase {
             self.store.state.count == 1
         }
         
-        XCTAssertEqual(store.state.count, 1)
+        #expect(store.state.count == 1)
     }
     
     // Test 3: Ensure that the state is updated when a setMessage action is sended.
-    func testSetMessageAction() async throws {
+    @Test func `Set message action`() async throws {
         store.send(.setMessage("Hello, World!"))
         
         // Wait for state change
@@ -38,11 +37,11 @@ final class StoreTests: XCTestCase {
             self.store.state.message == "Hello, World!"
         }
         
-        XCTAssertEqual(store.state.message, "Hello, World!")
+        #expect(store.state.message == "Hello, World!")
     }
     
     // Test 4: Ensure that the state is updated correctly for a combined action (incrementAndSetMessage).
-    func testIncrementAndSetMessageAction() async throws {
+    @Test func `Increment and set message action`() async throws {
         store.send(.incrementAndSetMessage("Updated"))
         
         // Wait for state change
@@ -50,12 +49,12 @@ final class StoreTests: XCTestCase {
             self.store.state.count == 1 && self.store.state.message == "Updated"
         }
         
-        XCTAssertEqual(store.state.count, 1)
-        XCTAssertEqual(store.state.message, "Updated")
+        #expect(store.state.count == 1)
+        #expect(store.state.message == "Updated")
     }
     
     // Test 5: Ensure recursive actions are handled correctly (if the reducer returns further actions).
-    func testRecursiveActionHandling() async throws {
+    @Test func `Recursive action handling`() async throws {
         let reducer = RecursiveReducer()
         let recursiveStore = Store(initial: RecursiveReducer.State(), reducer: reducer)
         
@@ -66,11 +65,11 @@ final class StoreTests: XCTestCase {
             recursiveStore.state.value == 2
         }
         
-        XCTAssertEqual(recursiveStore.state.value, 2)
+        #expect(recursiveStore.state.value == 2)
     }
     
     // Test 7: Sequential updates with fast send should update state correctly in order.
-    func testSequentialFastDispatch() async throws {
+    @Test func `Sequential fast dispatch`() async throws {
         // Dispatch actions quickly in sequence
         store.send(.increment)
         store.send(.incrementAndSetMessage("Message After Two Increments"))
@@ -81,12 +80,12 @@ final class StoreTests: XCTestCase {
             self.store.state.count == 3 && self.store.state.message == "Message After Two Increments"
         }
         
-        XCTAssertEqual(store.state.count, 3)
-        XCTAssertEqual(store.state.message, "Message After Two Increments")
+        #expect(store.state.count == 3)
+        #expect(store.state.message == "Message After Two Increments")
     }
     
     // Test 8: Verify state integrity when multiple actions are sended at the same time.
-    func testStateIntegrityWithConcurrentDispatch() async throws {
+    @Test func `State integrity with concurrent dispatch`() async throws {
         // Dispatch two actions in rapid succession
         store.send(.setMessage("Concurrent Update 2"))
         store.send(.incrementAndSetMessage("Updated Message"))
@@ -96,12 +95,12 @@ final class StoreTests: XCTestCase {
             self.store.state.count == 1 && self.store.state.message == "Updated Message"
         }
 
-        XCTAssertEqual(store.state.count, 1)
-        XCTAssertEqual(store.state.message, "Updated Message")
+        #expect(store.state.count == 1)
+        #expect(store.state.message == "Updated Message")
     }
     
     // Test 9: Multiple sequential actions modifying the same state value.
-    func testMultipleSequentialMessageUpdates() async throws {
+    @Test func `Multiple sequential message updates`() async throws {
         // Dispatch multiple setMessage actions in sequence
         store.send(.setMessage("First Message"))
         store.send(.setMessage("Second Message"))
@@ -112,11 +111,11 @@ final class StoreTests: XCTestCase {
             self.store.state.message == "Third Message"
         }
         
-        XCTAssertEqual(store.state.message, "Third Message")
+        #expect(store.state.message == "Third Message")
     }
     
     // Test 3: Ensure that simultaneous state updates do not conflict.
-    func testSimultaneousStateUpdates() async throws {
+    @Test func `Simultaneous state updates`() async throws {
         let reducer = TestReducer()
         let store = Store(initial: TestReducer.State(), reducer: reducer)
 
@@ -129,12 +128,12 @@ final class StoreTests: XCTestCase {
             store.state.count == 1 && store.state.message == "Message 2"
         }
 
-        XCTAssertEqual(store.state.count, 1)
-        XCTAssertEqual(store.state.message, "Message 2")
+        #expect(store.state.count == 1)
+        #expect(store.state.message == "Message 2")
     }
     
     // Test 4: Ensure state updates can be rolled back if a condition is met.
-    func testActionRollback() async throws {
+    @Test func `Action rollback`() async throws {
         let reducer = RollbackReducer()
         let store = Store(initial: RollbackReducer.State(), reducer: reducer)
         
@@ -145,11 +144,11 @@ final class StoreTests: XCTestCase {
         try await Task.sleep(nanoseconds: 500_000_000)  // 0.5 seconds
         
         // Assert that the rollback occurred
-        XCTAssertEqual(store.state.count, 0, "The state should remain unchanged due to rollback.")
+        #expect(store.state.count == 0, "The state should remain unchanged due to rollback.")
     }
     
     // Test 5: Ensure that state integrity is maintained during complex mutations.
-    func testComplexStateMutation() async throws {
+    @Test func `Complex state mutation`() async throws {
         let reducer = ComplexReducer()
         let store = Store(initial: ComplexReducer.State(), reducer: reducer)
         
@@ -162,11 +161,11 @@ final class StoreTests: XCTestCase {
             store.state.someStateProperty == "Update 2" && store.state.anotherStateProperty == 20
         }
         
-        XCTAssertEqual(store.state.someStateProperty, "Update 2")
-        XCTAssertEqual(store.state.anotherStateProperty, 20)
+        #expect(store.state.someStateProperty == "Update 2")
+        #expect(store.state.anotherStateProperty == 20)
     }
     
-    func testHighFrequencyActionDispatch() async throws {
+    @Test func `High frequency action dispatch`() async throws {
         // Dispatch a single action repeatedly at high frequency
         let repeatCount = 10_000
         for _ in 0..<repeatCount {
@@ -179,10 +178,10 @@ final class StoreTests: XCTestCase {
         }
         
         // Validate that the state reflects all increments
-        XCTAssertEqual(store.state.count, repeatCount, "The count should equal the number of repeated actions.")
+        #expect(store.state.count == repeatCount, "The count should equal the number of repeated actions.")
     }
     
-    func testMixedHighFrequencyActions() async throws {
+    @Test func `Mixed high frequency actions`() async throws {
         // Dispatch a mix of actions repeatedly at high frequency
         let repeatCount = 5_000
         for i in 0..<repeatCount {
@@ -199,11 +198,11 @@ final class StoreTests: XCTestCase {
         }
         
         // Validate the final state
-        XCTAssertEqual(store.state.count, repeatCount / 2, "The count should reflect half the total actions (increments).")
-        XCTAssertEqual(store.state.message, "Message \(repeatCount - 1)", "The message should reflect the last setMessage action.")
+        #expect(store.state.count == repeatCount / 2, "The count should reflect half the total actions (increments).")
+        #expect(store.state.message == "Message \(repeatCount - 1)", "The message should reflect the last setMessage action.")
     }
     
-    func testHighFrequencyActionsWithInterruptions() {
+    @Test func `High frequency actions with interruptions`() {
         let totalPrimaryActions = 10_000
         let interruptionInterval = 100
 
@@ -214,8 +213,8 @@ final class StoreTests: XCTestCase {
             }
         }
 
-        XCTAssertEqual(store.state.count, totalPrimaryActions)
-        XCTAssertEqual(store.state.num, 100)
+        #expect(store.state.count == totalPrimaryActions)
+        #expect(store.state.num == 100)
     }
     
 }

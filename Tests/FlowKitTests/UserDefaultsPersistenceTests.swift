@@ -1,4 +1,5 @@
-import XCTest
+import Foundation
+import Testing
 @testable import FlowKit
 
 // Tests for `UserDefaultsPersistence` against a real `UserDefaults` suite of their
@@ -45,92 +46,92 @@ private struct FailingToEncodeState: Codable, Sendable {
 }
 
 @MainActor
-final class UserDefaultsPersistenceTests: XCTestCase {
+final class UserDefaultsPersistenceTests {
 
     /// One suite for the whole class. A suite per test would leave one plist
     /// file per test behind: emptying a suite doesn't delete its file.
-    private static let suiteName = "flowkit.tests.UserDefaultsPersistenceTests"
+    /// `nonisolated` so the nonisolated `deinit` can read it.
+    nonisolated private static let suiteName = "flowkit.tests.UserDefaultsPersistenceTests"
 
-    private var defaults: UserDefaults!
+    // `UserDefaults` is documented as thread-safe but isn't annotated `Sendable`;
+    // `deinit` is nonisolated and reads it.
+    nonisolated(unsafe) private let defaults: UserDefaults
 
     /// Prefix of every key this test uses, so tests sharing the suite can't see
     /// each other's data, even when run in parallel. Fresh for every test:
-    /// XCTest creates one test case instance per test method.
+    /// Swift Testing creates one suite instance per test.
     private let testID = UUID().uuidString
 
     private func key(_ name: String) -> String {
         "\(testID).\(name)"
     }
 
-    override func setUp() async throws {
-        try await super.setUp()
-        defaults = try XCTUnwrap(UserDefaults(suiteName: Self.suiteName))
+    init() throws {
+        defaults = try #require(UserDefaults(suiteName: Self.suiteName))
     }
 
-    override func tearDown() async throws {
+    deinit {
         let ownKeys = defaults.persistentDomain(forName: Self.suiteName)?.keys.filter { $0.hasPrefix(testID) } ?? []
         for key in ownKeys {
             defaults.removeObject(forKey: key)
         }
-        defaults = nil
-        try await super.tearDown()
     }
 
     // MARK: - Persistence on its own
 
-    func testLoadReturnsWhatWasSaved() {
+    @Test func `Load returns what was saved`() {
         let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
 
         persistence.save(CounterState(value: 7))
 
-        XCTAssertEqual(persistence.load(), CounterState(value: 7))
+        #expect(persistence.load() == CounterState(value: 7))
     }
 
-    func testLoadReturnsNilWhenNothingWasSaved() {
+    @Test func `Load returns nil when nothing was saved`() {
         let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
 
-        XCTAssertNil(persistence.load())
+        #expect(persistence.load() == nil)
     }
 
     /// `load()` must return nil on decode failure, but must NOT delete the saved
     /// data: decode failure is a normal consequence of type evolution, and
     /// silently wiping the data would make migration impossible.
-    func testLoadReturnsNilButKeepsDataThatFailsToDecode() {
+    @Test func `Load returns nil but keeps data that fails to decode`() {
         let corrupted = Data("This is not JSON".utf8)
         defaults.set(corrupted, forKey: key("counter"))
         let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
 
-        XCTAssertNil(persistence.load())
+        #expect(persistence.load() == nil)
 
-        XCTAssertEqual(defaults.data(forKey: key("counter")), corrupted)
+        #expect(defaults.data(forKey: key("counter")) == corrupted)
     }
 
     /// `save(_:)` must handle encoder failures without crashing, and must NOT
     /// clobber previously saved, valid data when encoding throws.
-    func testSaveKeepsPreviousDataWhenEncodingFails() {
+    @Test func `Save keeps previous data when encoding fails`() {
         let previous = Data("previous valid blob".utf8)
         defaults.set(previous, forKey: key("failing"))
         let persistence = UserDefaultsPersistence<FailingToEncodeState>(defaults, key: key("failing"))
 
         persistence.save(FailingToEncodeState())
 
-        XCTAssertEqual(defaults.data(forKey: key("failing")), previous)
+        #expect(defaults.data(forKey: key("failing")) == previous)
     }
 
-    func testDifferentKeysDoNotSeeEachOther() {
+    @Test func `Different keys do not see each other`() {
         let first = UserDefaultsPersistence<CounterState>(defaults, key: key("first"))
         let second = UserDefaultsPersistence<CounterState>(defaults, key: key("second"))
 
         first.save(CounterState(value: 1))
         second.save(CounterState(value: 2))
 
-        XCTAssertEqual(first.load(), CounterState(value: 1))
-        XCTAssertEqual(second.load(), CounterState(value: 2))
+        #expect(first.load() == CounterState(value: 1))
+        #expect(second.load() == CounterState(value: 2))
     }
 
     // MARK: - Persistence behind a store
 
-    func testStoreRestoresStateSavedByPreviousStore() async throws {
+    @Test func `Store restores state saved by previous store`() async throws {
         let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
         let first = Store(reducer: DefaultsCounterReducer(), default: CounterState(), persistence: persistence)
         first.send(.increment)
@@ -143,10 +144,10 @@ final class UserDefaultsPersistenceTests: XCTestCase {
             persistence: .userDefaults(defaults, key: key("counter"))
         )
 
-        XCTAssertEqual(second.state.value, 2)
+        #expect(second.state.value == 2)
     }
 
-    func testStoreStartsFromDefaultWhenSavedDataIsCorrupted() {
+    @Test func `Store starts from default when saved data is corrupted`() {
         defaults.set(Data("This is not JSON".utf8), forKey: key("counter"))
 
         let store = Store(
@@ -155,10 +156,10 @@ final class UserDefaultsPersistenceTests: XCTestCase {
             persistence: .userDefaults(defaults, key: key("counter"))
         )
 
-        XCTAssertEqual(store.state.value, 10)
+        #expect(store.state.value == 10)
     }
 
-    func testStoresWithSameStateTypeUnderDifferentKeysPersistIndependently() async throws {
+    @Test func `Stores with same state type under different keys persist independently`() async throws {
         let firstPersistence = UserDefaultsPersistence<CounterState>(defaults, key: key("first"))
         let secondPersistence = UserDefaultsPersistence<CounterState>(defaults, key: key("second"))
         let first = Store(reducer: DefaultsCounterReducer(), default: CounterState(), persistence: firstPersistence)
@@ -171,13 +172,13 @@ final class UserDefaultsPersistenceTests: XCTestCase {
         try await waitForStateChange(timeout: 2.0) {
             firstPersistence.load()?.value == 1 && secondPersistence.load()?.value == 102
         }
-        XCTAssertEqual(firstPersistence.load()?.value, 1)
-        XCTAssertEqual(secondPersistence.load()?.value, 102)
+        #expect(firstPersistence.load()?.value == 1)
+        #expect(secondPersistence.load()?.value == 102)
     }
 
     /// The key is chosen by whoever creates the store, so a state type can be
     /// renamed or moved without losing what was saved under that key.
-    func testSavedStateSurvivesRenamingTheStateType() async throws {
+    @Test func `Saved state survives renaming the state type`() async throws {
         let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
         let original = Store(reducer: DefaultsCounterReducer(), default: CounterState(), persistence: persistence)
         original.send(.increment)
@@ -189,16 +190,16 @@ final class UserDefaultsPersistenceTests: XCTestCase {
             persistence: .userDefaults(defaults, key: key("counter"))
         )
 
-        XCTAssertEqual(renamed.state.value, 1)
+        #expect(renamed.state.value == 1)
     }
 
-    func testNothingIsWrittenToStandardDefaults() async throws {
+    @Test func `Nothing is written to standard defaults`() async throws {
         let persistence = UserDefaultsPersistence<CounterState>(defaults, key: key("counter"))
         let store = Store(reducer: DefaultsCounterReducer(), default: CounterState(), persistence: persistence)
 
         store.send(.increment)
         try await waitForStateChange(timeout: 2.0) { persistence.load()?.value == 1 }
 
-        XCTAssertNil(UserDefaults.standard.object(forKey: key("counter")))
+        #expect(UserDefaults.standard.object(forKey: key("counter")) == nil)
     }
 }

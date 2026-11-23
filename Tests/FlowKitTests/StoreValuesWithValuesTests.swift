@@ -1,8 +1,8 @@
-import XCTest
+import Testing
 @testable import FlowKit
 
 @MainActor
-final class StoreValuesWithValuesTests: XCTestCase {
+struct StoreValuesWithValuesTests {
     struct CountReducer: Reducer {
         struct State: Equatable, Sendable { var count: Int = 0 }
         enum Action: Equatable, Sendable { case increment }
@@ -20,7 +20,7 @@ final class StoreValuesWithValuesTests: XCTestCase {
         )
     }
 
-    func testSyncOverrideResolves() throws {
+    @Test func `Sync override resolves`() throws {
         let stub = Store(initial: CountReducer.State(count: 42), reducer: CountReducer())
 
         let observed = StoreValues.withValues {
@@ -29,10 +29,10 @@ final class StoreValuesWithValuesTests: XCTestCase {
             StoreValues._global[CountStoreKey.self].state.count
         }
 
-        XCTAssertEqual(observed, 42)
+        #expect(observed == 42)
     }
 
-    func testAsyncOverrideResolves() async throws {
+    @Test func `Async override resolves`() async throws {
         let stub = Store(initial: CountReducer.State(count: 7), reducer: CountReducer())
 
         let observed: Int = await StoreValues.withValues { values in
@@ -44,27 +44,26 @@ final class StoreValuesWithValuesTests: XCTestCase {
             }
         }
 
-        XCTAssertEqual(observed, 7)
+        #expect(observed == 7)
     }
 
-    func testOverrideRevertsAfterScope() {
+    @Test func `Override reverts after scope`() {
         let stub = Store(initial: CountReducer.State(count: 99), reducer: CountReducer())
         let defaultCount = StoreValues._global[CountStoreKey.self].state.count
 
         StoreValues.withValues {
             $0[CountStoreKey.self] = stub
         } operation: {
-            XCTAssertEqual(StoreValues._global[CountStoreKey.self].state.count, 99)
+            #expect(StoreValues._global[CountStoreKey.self].state.count == 99)
         }
 
-        XCTAssertEqual(
-            StoreValues._global[CountStoreKey.self].state.count,
-            defaultCount,
+        #expect(
+            StoreValues._global[CountStoreKey.self].state.count == defaultCount,
             "Task-local override should revert after scope"
         )
     }
 
-    func testOverridesAreIsolatedBetweenInvocations() {
+    @Test func `Overrides are isolated between invocations`() {
         let stubA = Store(initial: CountReducer.State(count: 1), reducer: CountReducer())
         let stubB = Store(initial: CountReducer.State(count: 2), reducer: CountReducer())
 
@@ -80,7 +79,7 @@ final class StoreValuesWithValuesTests: XCTestCase {
             StoreValues._global[CountStoreKey.self].state.count
         }
 
-        XCTAssertEqual(a, 1)
-        XCTAssertEqual(b, 2)
+        #expect(a == 1)
+        #expect(b == 2)
     }
 }

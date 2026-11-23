@@ -1,4 +1,4 @@
-import XCTest
+import Testing
 @testable import FlowKit
 
 // Tests for `Store(reducer:default:persistence:)` against `InMemoryPersistence` and `RecordingPersistence`:
@@ -26,45 +26,45 @@ private struct StoredCounterReducer: Reducer {
 }
 
 @MainActor
-final class PersistenceTests: XCTestCase {
+struct PersistenceTests {
 
     // MARK: - Restoring
 
-    func testStoreStartsFromStateHeldByPersistence() {
+    @Test func `Store starts from state held by persistence`() {
         let memory = InMemoryPersistence(StoredCounterReducer.State(value: 42))
 
         let store = Store(reducer: StoredCounterReducer(), default: .init(), persistence: memory)
 
-        XCTAssertEqual(store.state.value, 42)
+        #expect(store.state.value == 42)
     }
 
-    func testStoreStartsFromDefaultWhenPersistenceIsEmpty() {
+    @Test func `Store starts from default when persistence is empty`() {
         let memory = InMemoryPersistence<StoredCounterReducer.State>()
 
         let store = Store(reducer: StoredCounterReducer(), default: .init(value: 10), persistence: memory)
 
-        XCTAssertEqual(store.state.value, 10)
+        #expect(store.state.value == 10)
     }
 
-    func testDefaultStateIsSavedDuringInitWhenPersistenceIsEmpty() {
+    @Test func `Default state is saved during init when persistence is empty`() {
         let memory = InMemoryPersistence<StoredCounterReducer.State>()
 
         _ = Store(reducer: StoredCounterReducer(), default: .init(value: 10), persistence: memory)
 
-        XCTAssertEqual(memory.value, .init(value: 10))
+        #expect(memory.value == .init(value: 10))
     }
 
-    func testRestoredStateIsNotSavedBackDuringInit() {
+    @Test func `Restored state is not saved back during init`() {
         let recording = RecordingPersistence(restoring: StoredCounterReducer.State(value: 42))
 
         _ = Store(reducer: StoredCounterReducer(), default: .init(), persistence: recording)
 
-        XCTAssertEqual(recording.saves, [])
+        #expect(recording.saves == [])
     }
 
     // MARK: - Saving
 
-    func testStateIsSavedAfterEveryActionInOrder() async throws {
+    @Test func `State is saved after every action in order`() async throws {
         let recording = RecordingPersistence<StoredCounterReducer.State>()
         let store = Store(reducer: StoredCounterReducer(), default: .init(), persistence: recording)
 
@@ -74,10 +74,10 @@ final class PersistenceTests: XCTestCase {
 
         try await waitForStateChange(timeout: 2.0) { recording.saves.count == 4 }
         // The default state saved during init, then one save per action.
-        XCTAssertEqual(recording.saves.map(\.value), [0, 1, 2, 1])
+        #expect(recording.saves.map(\.value) == [0, 1, 2, 1])
     }
 
-    func testSavesAfterActionsRunOffTheMainThread() async throws {
+    @Test func `Saves after actions run off the main thread`() async throws {
         let recording = RecordingPersistence(restoring: StoredCounterReducer.State())
         let store = Store(reducer: StoredCounterReducer(), default: .init(), persistence: recording)
 
@@ -85,10 +85,10 @@ final class PersistenceTests: XCTestCase {
         store.send(.increment)
 
         try await waitForStateChange(timeout: 2.0) { recording.saves.count == 2 }
-        XCTAssertEqual(recording.savesOnMainThread, [false, false])
+        #expect(recording.savesOnMainThread == [false, false])
     }
 
-    func testNextStoreOnSamePersistenceContinuesFromSavedState() async throws {
+    @Test func `Next store on same persistence continues from saved state`() async throws {
         let memory = InMemoryPersistence<StoredCounterReducer.State>()
         let first = Store(reducer: StoredCounterReducer(), default: .init(), persistence: memory)
         first.send(.increment)
@@ -97,12 +97,12 @@ final class PersistenceTests: XCTestCase {
 
         let second = Store(reducer: StoredCounterReducer(), default: .init(), persistence: memory)
 
-        XCTAssertEqual(second.state.value, 2)
+        #expect(second.state.value == 2)
     }
 
     // MARK: - Independence
 
-    func testStoresWithSameStateTypePersistIndependently() async throws {
+    @Test func `Stores with same state type persist independently`() async throws {
         let firstMemory = InMemoryPersistence<StoredCounterReducer.State>()
         let secondMemory = InMemoryPersistence<StoredCounterReducer.State>()
         let first = Store(reducer: StoredCounterReducer(), default: .init(), persistence: firstMemory)
@@ -115,26 +115,26 @@ final class PersistenceTests: XCTestCase {
         try await waitForStateChange(timeout: 2.0) {
             firstMemory.value?.value == 2 && secondMemory.value?.value == -1
         }
-        XCTAssertEqual(firstMemory.value?.value, 2)
-        XCTAssertEqual(secondMemory.value?.value, -1)
+        #expect(firstMemory.value?.value == 2)
+        #expect(secondMemory.value?.value == -1)
     }
 
     // MARK: - InMemoryPersistence
 
-    func testInMemoryPersistenceHoldsInitialValueUntilSaved() {
+    @Test func `InMemoryPersistence holds initial value until saved`() {
         let memory = InMemoryPersistence(StoredCounterReducer.State(value: 1))
-        XCTAssertEqual(memory.load(), .init(value: 1))
+        #expect(memory.load() == .init(value: 1))
 
         memory.save(.init(value: 2))
 
-        XCTAssertEqual(memory.value, .init(value: 2))
-        XCTAssertEqual(memory.load(), .init(value: 2))
+        #expect(memory.value == .init(value: 2))
+        #expect(memory.load() == .init(value: 2))
     }
 
-    func testInMemoryPersistenceIsEmptyByDefault() {
+    @Test func `InMemoryPersistence is empty by default`() {
         let memory = InMemoryPersistence<StoredCounterReducer.State>()
 
-        XCTAssertNil(memory.value)
-        XCTAssertNil(memory.load())
+        #expect(memory.value == nil)
+        #expect(memory.load() == nil)
     }
 }

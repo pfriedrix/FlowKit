@@ -1,10 +1,15 @@
-import XCTest
+import Testing
 import os
 @testable import FlowKit
 
-final class LoggerTests: XCTestCase {
+// `Logger.logLevel` / `Logger.formatStyle` are process-wide. StoreTests writes `Logger.logLevel`
+// from its MainActor init, so keeping every set-then-read of the logger config here synchronous
+// on MainActor (and serialized within this suite) means no other suite's write can land in between.
+@Suite(.serialized)
+@MainActor
+struct LoggerTests {
     
-    func testLoggerWithFullFormat() {
+    @Test func `Logger with full format`() {
         // Given
         let action = "ScheduleReducer.checkAuthorization"
         
@@ -12,10 +17,10 @@ final class LoggerTests: XCTestCase {
         let formattedAction = ActionFormatter().format(action: action, style: .full)
         
         // Then
-        XCTAssertEqual(formattedAction, "Dispatching action: \(action)", "The full format should show the complete action string.")
+        #expect(formattedAction == "Dispatching action: \(action)", "The full format should show the complete action string.")
     }
     
-    func testLoggerWithShortFormatWithoutEllipsis() {
+    @Test func `Logger with short format without ellipsis`() {
         // Given
         let action = "ScheduleReducer.checkAuthorization" // Fits within the 32-char limit without truncation
         
@@ -23,10 +28,10 @@ final class LoggerTests: XCTestCase {
         let formattedAction = ActionFormatter().format(action: action, style: .short)
         
         // Then
-        XCTAssertEqual(formattedAction, "Dispatching action: ScheduleReducer.checkAuthorization", "The short format should display the full abbreviation without ellipsis if the content fits.")
+        #expect(formattedAction == "Dispatching action: ScheduleReducer.checkAuthorization", "The short format should display the full abbreviation without ellipsis if the content fits.")
     }
     
-    func testLoggerWithShortFormatWithEllipsis() {
+    @Test func `Logger with short format with ellipsis`() {
         // Given
         let action = "HomeReducer.constructorStandings([Parser.ParseConstructorStanding(position: 1, name: \"McLaren Mercedes\", points: 593.0)])"
         
@@ -34,10 +39,10 @@ final class LoggerTests: XCTestCase {
         let formattedAction = ActionFormatter().format(action: action, style: .short)
         
         // Then
-        XCTAssertEqual(formattedAction, "Dispatching action: HomeReducer.constructorStandings([Parser.ParseConstructorStandin...", "The short format should add ellipsis when the action is truncated.")
+        #expect(formattedAction == "Dispatching action: HomeReducer.constructorStandings([Parser.ParseConstructorStandin...", "The short format should add ellipsis when the action is truncated.")
     }
     
-    func testLoggerWithAbbreviatedFormat() {
+    @Test func `Logger with abbreviated format`() {
         // Given
         let action = "ArchiveReducer.scenePhase(SwiftUI.ScenePhase.active)"
 
@@ -45,36 +50,36 @@ final class LoggerTests: XCTestCase {
         let formattedAction = ActionFormatter().format(action: action, style: .abbreviated)
 
         // Then
-        XCTAssertEqual(formattedAction, "Dispatching action: ArchiveReducer.scenePhase", "The abbreviated format should only show the main action prefix.")
+        #expect(formattedAction == "Dispatching action: ArchiveReducer.scenePhase", "The abbreviated format should only show the main action prefix.")
     }
 
     // MARK: - Logger configuration round-trip
 
     /// `Logger.logLevel` round-trips through its unfair-lock-backed setter.
-    func testLoggerLogLevel_setterRoundTrips() {
+    @Test func `Logger log level setter round trips`() {
         let original = Logger.logLevel
         defer { Logger.logLevel = original }
 
         Logger.logLevel = .error
-        XCTAssertEqual(Logger.logLevel, .error)
+        #expect(Logger.logLevel == .error)
     }
 
     /// `Logger.formatStyle` round-trips through its unfair-lock-backed setter.
-    func testLoggerFormatStyle_setterRoundTrips() {
+    @Test func `Logger format style setter round trips`() {
         let original = Logger.formatStyle
         defer { Logger.formatStyle = original }
 
         Logger.formatStyle = .abbreviated
-        XCTAssertEqual(Logger.formatStyle, .abbreviated)
+        #expect(Logger.formatStyle == .abbreviated)
 
         Logger.formatStyle = .short
-        XCTAssertEqual(Logger.formatStyle, .short)
+        #expect(Logger.formatStyle == .short)
     }
 
     /// Log methods below the current `logLevel` early-return without emitting.
     /// No way to intercept `os.Logger` output in-process, so this is a smoke test
     /// that the early-return branch executes without crashing.
-    func testLoggerMethods_earlyReturnWhenBelowLevel() {
+    @Test func `Logger methods early return when below level`() {
         let original = Logger.logLevel
         defer { Logger.logLevel = original }
 
@@ -86,11 +91,11 @@ final class LoggerTests: XCTestCase {
         Logger.shared.action("action")
 
         // Reaching this line without a trap confirms the guards executed.
-        XCTAssertEqual(Logger.logLevel, .fault)
+        #expect(Logger.logLevel == .fault)
     }
 
     /// Log methods at/above the current `logLevel` take the emit branch.
-    func testLoggerMethods_emitWhenAboveLevel() {
+    @Test func `Logger methods emit when above level`() {
         let original = Logger.logLevel
         defer { Logger.logLevel = original }
 
@@ -101,6 +106,6 @@ final class LoggerTests: XCTestCase {
         Logger.shared.error("error")
         Logger.shared.fault("fault")
 
-        XCTAssertEqual(Logger.logLevel, .debug)
+        #expect(Logger.logLevel == .debug)
     }
 }

@@ -1,9 +1,9 @@
-import XCTest
+import Testing
 import SwiftUI
 @testable import FlowKit
 
 @MainActor
-final class BindingCapturePolicyTests: XCTestCase {
+struct BindingCapturePolicyTests {
     struct CounterReducer: Reducer {
         struct State: Equatable {
             var count: Int
@@ -22,7 +22,7 @@ final class BindingCapturePolicyTests: XCTestCase {
         }
     }
 
-    func testGetterKeepsStoreAlive() {
+    @Test func `Getter keeps store alive`() {
         weak var weakStore: Store<CounterReducer>?
         var binding: Binding<Int>?
         do {
@@ -30,19 +30,19 @@ final class BindingCapturePolicyTests: XCTestCase {
             weakStore = store
             binding = store.binding(for: \.count, set: { .set($0) })
         }
-        XCTAssertNotNil(weakStore, "getter's [self] must keep Store alive while Binding exists")
-        XCTAssertEqual(binding?.wrappedValue, 42)
+        #expect(weakStore != nil, "getter's [self] must keep Store alive while Binding exists")
+        #expect(binding?.wrappedValue == 42)
         binding = nil
-        XCTAssertNil(weakStore, "Store must be released once Binding is gone")
+        #expect(weakStore == nil, "Store must be released once Binding is gone")
     }
 
-    func testBindingDoesNotLeakStoreAfterRelease() {
+    @Test func `Binding does not leak store after release`() {
         weak var weakStore: Store<CounterReducer>?
         do {
             let store = Store(initial: .init(count: 0), reducer: CounterReducer())
             weakStore = store
             _ = store.binding(for: \.count, set: { .set($0) })
         }
-        XCTAssertNil(weakStore, "discarded Binding must not retain Store")
+        #expect(weakStore == nil, "discarded Binding must not retain Store")
     }
 }

@@ -1,8 +1,9 @@
-import XCTest
+import Foundation
+import Testing
 @testable import FlowKit
 
 @MainActor
-final class WaitForStateChangeTests: XCTestCase {
+struct WaitForStateChangeTests {
     struct BumpReducer: Reducer {
         struct State: Equatable, Sendable { var count: Int = 0 }
         enum Action: Equatable, Sendable { case bump }
@@ -13,17 +14,19 @@ final class WaitForStateChangeTests: XCTestCase {
         }
     }
 
-    func testReturnsImmediatelyWhenConditionAlreadyTrue() async throws {
+    @Test func `Returns immediately when condition already true`() async throws {
         let store = Store(initial: BumpReducer.State(count: 1), reducer: BumpReducer())
         let start = Date()
         try await waitForStateChange(timeout: 1.0) {
             store.state.count == 1
         }
         let elapsed = Date().timeIntervalSince(start)
-        XCTAssertLessThan(elapsed, 0.05, "Should return synchronously without awaiting")
+        #expect(elapsed < 0.05, "Should return synchronously without awaiting")
     }
 
-    func testReturnsPromptlyAfterSingleSend() async throws {
+    // No wall-clock bound: suites run in parallel and share MainActor, so the
+    // time to return measures other suites' load, not this helper.
+    @Test func `Returns after single send`() async throws {
         let store = Store(initial: BumpReducer.State(), reducer: BumpReducer())
 
         Task { @MainActor in
@@ -31,16 +34,13 @@ final class WaitForStateChangeTests: XCTestCase {
             store.send(.bump)
         }
 
-        let start = Date()
         try await waitForStateChange(timeout: 1.0) {
             store.state.count == 1
         }
-        let elapsed = Date().timeIntervalSince(start)
-        XCTAssertEqual(store.state.count, 1)
-        XCTAssertLessThan(elapsed, 0.2, "Observation-driven wait should beat 50ms poll floor")
+        #expect(store.state.count == 1)
     }
 
-    func testReturnsAfterMultipleStateChanges() async throws {
+    @Test func `Returns after multiple state changes`() async throws {
         let store = Store(initial: BumpReducer.State(), reducer: BumpReducer())
 
         Task { @MainActor in
@@ -53,21 +53,16 @@ final class WaitForStateChangeTests: XCTestCase {
         try await waitForStateChange(timeout: 1.0) {
             store.state.count == 3
         }
-        XCTAssertEqual(store.state.count, 3)
+        #expect(store.state.count == 3)
     }
 
-    func testThrowsOnTimeout() async {
+    @Test func `Throws on timeout`() async {
         let store = Store(initial: BumpReducer.State(), reducer: BumpReducer())
 
-        do {
+        await #expect(throws: WaitForStateChangeTimeout.self, "Expected timeout error") {
             try await waitForStateChange(timeout: 0.1) {
                 store.state.count == 99
             }
-            XCTFail("Expected timeout error")
-        } catch is WaitForStateChangeTimeout {
-            // expected
-        } catch {
-            XCTFail("Expected WaitForStateChangeTimeout, got \(error)")
         }
     }
 }

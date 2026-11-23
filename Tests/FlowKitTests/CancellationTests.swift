@@ -1,5 +1,6 @@
 @_spi(Internals) @testable import FlowKit
-import XCTest
+import Foundation
+import Testing
 
 final class CancellableReducer: Reducer {
     struct State {
@@ -92,10 +93,10 @@ final class RaceConditionTestReducer: Reducer {
 }
 
 @MainActor
-final class CancellationTests: XCTestCase {
+struct CancellationTests {
 
     // Test 1: Ensure a cancellable task can be started and then canceled correctly.
-    func testCancellableTaskStartAndCancel() async throws {
+    @Test func `Cancellable task start and cancel`() async throws {
         let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: "test1_task"))
 
         // Start a cancellable task
@@ -103,7 +104,7 @@ final class CancellationTests: XCTestCase {
         
         // Wait briefly to ensure the task starts
         try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-        XCTAssertEqual(store.state.data, "Task Started", "The task should have started.")
+        #expect(store.state.data == "Task Started", "The task should have started.")
         
         // Cancel the task
         store.send(.cancelTask)
@@ -112,11 +113,11 @@ final class CancellationTests: XCTestCase {
         try await Task.sleep(nanoseconds: 1_500_000_000) // 1.5 seconds
 
         // Verify that the task was canceled and did not complete
-        XCTAssertEqual(store.state.data, "Task Started", "The task should not have completed due to cancellation.")
+        #expect(store.state.data == "Task Started", "The task should not have completed due to cancellation.")
     }
 
     // Test 2: Ensure a task runs to completion if not canceled.
-    func testCancellableTaskCompletion() async throws {
+    @Test func `Cancellable task completion`() async throws {
         let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: "test2_task"))
 
         store.send(.startCancellableTask)
@@ -124,11 +125,11 @@ final class CancellationTests: XCTestCase {
         try await waitForStateChange(timeout: 2.0) {
             store.state.data == "Task Completed"
         }
-        XCTAssertEqual(store.state.data, "Task Completed")
+        #expect(store.state.data == "Task Completed")
     }
 
     // Test 3: Ensure multiple starts and cancels work correctly.
-    func testMultipleStartAndCancel() async throws {
+    @Test func `Multiple start and cancel`() async throws {
         let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: "test3_task"))
 
         store.send(.startCancellableTask)
@@ -137,17 +138,17 @@ final class CancellationTests: XCTestCase {
 
         store.send(.startCancellableTask)
         // First: task is marked started synchronously on send.
-        XCTAssertEqual(store.state.data, "Task Started")
+        #expect(store.state.data == "Task Started")
 
         // Then wait for the natural completion of the restarted task.
         try await waitForStateChange(timeout: 2.0) {
             store.state.data == "Task Completed"
         }
-        XCTAssertEqual(store.state.data, "Task Completed")
+        #expect(store.state.data == "Task Completed")
     }
 
     // Test 4: Rapid start and cancel scenario.
-    func testRapidStartAndCancel() async throws {
+    @Test func `Rapid start and cancel`() async throws {
         let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: "test4_task"))
 
         // Rapidly start and cancel the task multiple times
@@ -159,11 +160,11 @@ final class CancellationTests: XCTestCase {
 
         // Ensure the state reflects that the task was not completed
         try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-        XCTAssertEqual(store.state.data, "Task Started", "The task should not have completed due to rapid cancellations.")
+        #expect(store.state.data == "Task Started", "The task should not have completed due to rapid cancellations.")
     }
 
     // Test 5: No double execution after cancellation
-    func testNoDoubleExecutionAfterCancellation() async throws {
+    @Test func `No double execution after cancellation`() async throws {
         let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: "test5_task"))
 
         // Start a task and cancel it quickly
@@ -173,12 +174,12 @@ final class CancellationTests: XCTestCase {
 
         // Ensure no completion occurs
         try await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
-        XCTAssertEqual(store.state.data, "Task Started", "The task should not have completed after cancellation.")
+        #expect(store.state.data == "Task Started", "The task should not have completed after cancellation.")
     }
     
     // Test: auto-cleanup on completion — the collection entry must not leak after a
     // `.cancellable` task finishes naturally.
-    func testCancellableEntryRemovedAfterCompletion() async throws {
+    @Test func `Cancellable entry removed after completion`() async throws {
         let taskId = "leak_\(UUID().uuidString)"
         let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: taskId))
 
@@ -187,7 +188,7 @@ final class CancellationTests: XCTestCase {
         store.send(.startCancellableTask)
 
         // Registration is synchronous on MainActor — entry must already exist.
-        XCTAssertEqual(store.tasks.values.filter({ $0.id != nil }).count, baseline + 1)
+        #expect(store.tasks.values.filter({ $0.id != nil }).count == baseline + 1)
 
         try await waitForStateChange(timeout: 2.0) {
             store.state.data == "Task Completed"
@@ -195,14 +196,14 @@ final class CancellationTests: XCTestCase {
         try await waitForStateChange(timeout: 1.0) {
             store.tasks.values.filter({ $0.id != nil }).count == baseline
         }
-        XCTAssertEqual(store.tasks.values.filter({ $0.id != nil }).count, baseline)
+        #expect(store.tasks.values.filter({ $0.id != nil }).count == baseline)
     }
 
     // Test: race fix — a cancel dispatched immediately after start must never be missed.
     // Pre-fix: `Task { }` started before registration, so the cancel found nothing and the task
     // ran to completion. Post-fix: `register` is a single non-suspending actor step, so the
     // cancel always observes the new entry.
-    func testStartThenImmediateCancelNeverRuns() async throws {
+    @Test func `Start then immediate cancel never runs`() async throws {
         let iterations = 50
         var stores: [Store<CancellableReducer>] = []
         for i in 0..<iterations {
@@ -218,7 +219,7 @@ final class CancellationTests: XCTestCase {
         try await Task.sleep(nanoseconds: 1_500_000_000)
 
         for (i, store) in stores.enumerated() {
-            XCTAssertEqual(store.state.data, "Task Started", "Iteration \(i): cancel was missed, task ran to completion")
+            #expect(store.state.data == "Task Started", "Iteration \(i): cancel was missed, task ran to completion")
         }
     }
 
@@ -226,7 +227,7 @@ final class CancellationTests: XCTestCase {
     // `cancelInFlight: true` supersedes an earlier one, the earlier task's late `removeIfCurrent`
     // must not evict the replacement.
     /// Cancelled first task's late cleanup hop must not evict the live replacement.
-    func testReplacement_survivesLateCleanupOfCancelledPredecessor() async throws {
+    @Test func `Replacement survives late cleanup of cancelled predecessor`() async throws {
         let taskId = "replace_\(UUID().uuidString)"
         let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: taskId))
 
@@ -238,11 +239,11 @@ final class CancellationTests: XCTestCase {
         // Wait out the cancelled first task's completion hop.
         try await Task.sleep(nanoseconds: 200_000_000)
 
-        XCTAssertEqual(store.tasks.values.filter({ $0.id != nil }).count, 1)
+        #expect(store.tasks.values.filter({ $0.id != nil }).count == 1)
     }
 
     /// Explicit `.cancel(id:)` removes the live replacement from the registry.
-    func testReplacement_removedAfterExplicitCancel() async throws {
+    @Test func `Replacement removed after explicit cancel`() async throws {
         let taskId = "replace_\(UUID().uuidString)"
         let store = Store(initial: CancellableReducer.State(), reducer: CancellableReducer(taskId: taskId))
 
@@ -256,11 +257,11 @@ final class CancellationTests: XCTestCase {
         try await waitForStateChange(timeout: 1.0) {
             store.tasks.values.filter({ $0.id != nil }).isEmpty
         }
-        XCTAssertEqual(store.tasks.values.filter({ $0.id != nil }).count, 0)
+        #expect(store.tasks.values.filter({ $0.id != nil }).count == 0)
     }
 
     // Test 6: Verify cancellation prevents task execution
-    func testRaceConditionFix() async throws {
+    @Test func `Race condition fix`() async throws {
         let reducer = RaceConditionTestReducer()
         let store = Store(initial: RaceConditionTestReducer.State(), reducer: reducer)
 
@@ -268,7 +269,7 @@ final class CancellationTests: XCTestCase {
         store.send(.startRaceConditionTask)
 
         // Verify task started
-        XCTAssertTrue(store.state.taskStarted, "Task should have been marked as started")
+        #expect(store.state.taskStarted, "Task should have been marked as started")
 
         // Cancel immediately after starting
         store.send(.cancelRaceConditionTask)
@@ -278,7 +279,7 @@ final class CancellationTests: XCTestCase {
 
         // When cancelled, the task should NOT have executed (executionCount should be 0)
         // Note: wasCancelled won't be set because cancelled tasks can't send actions
-        XCTAssertEqual(store.state.executionCount, 0, "Cancelled task should not have executed")
-        XCTAssertTrue(store.state.taskStarted, "Task should still be marked as started")
+        #expect(store.state.executionCount == 0, "Cancelled task should not have executed")
+        #expect(store.state.taskStarted, "Task should still be marked as started")
     }
 }
